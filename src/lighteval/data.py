@@ -26,7 +26,7 @@ from typing import Iterator, Tuple
 
 import torch
 from torch.utils.data import Dataset
-from torch.utils.data.distributed import DistributedSampler, T_co
+from torch.utils.data.distributed import DistributedSampler#, T_co
 
 from lighteval.tasks.requests import (
     GreedyUntilRequest,
@@ -313,33 +313,33 @@ class GenerativeTaskDatasetNanotron(GenerativeTaskDataset):
         return index, self.sorted_data[index + self.split_start]
 
 
-class GenDistributedSampler(DistributedSampler):
-    """A distributed sampler that copy the last element only when drop_last is False so we keep a small padding in the batches
-    as our samples are sorted by length.
-    """
+# class GenDistributedSampler(DistributedSampler):
+#     """A distributed sampler that copy the last element only when drop_last is False so we keep a small padding in the batches
+#     as our samples are sorted by length.
+#     """
 
-    def __iter__(self) -> Iterator[T_co]:
-        if self.shuffle:
-            # deterministically shuffle based on epoch and seed
-            g = torch.Generator()
-            g.manual_seed(self.seed + self.epoch)
-            indices = torch.randperm(len(self.dataset), generator=g).tolist()  # type: ignore[arg-type]
-        else:
-            indices = list(range(len(self.dataset)))  # type: ignore[arg-type]
+#     def __iter__(self) -> Iterator[T_co]:
+#         if self.shuffle:
+#             # deterministically shuffle based on epoch and seed
+#             g = torch.Generator()
+#             g.manual_seed(self.seed + self.epoch)
+#             indices = torch.randperm(len(self.dataset), generator=g).tolist()  # type: ignore[arg-type]
+#         else:
+#             indices = list(range(len(self.dataset)))  # type: ignore[arg-type]
 
-        if not self.drop_last:
-            # add extra samples to make it evenly divisible
-            padding_size = self.total_size - len(indices)
-            indices += [
-                indices[-1]
-            ] * padding_size  # This is our only change here compared to the original DistributedSampler
-        else:
-            # remove tail of data to make it evenly divisible.
-            indices = indices[: self.total_size]
-        assert len(indices) == self.total_size
+#         if not self.drop_last:
+#             # add extra samples to make it evenly divisible
+#             padding_size = self.total_size - len(indices)
+#             indices += [
+#                 indices[-1]
+#             ] * padding_size  # This is our only change here compared to the original DistributedSampler
+#         else:
+#             # remove tail of data to make it evenly divisible.
+#             indices = indices[: self.total_size]
+#         assert len(indices) == self.total_size
 
-        # subsample
-        indices = indices[self.rank : self.total_size : self.num_replicas]
-        assert len(indices) == self.num_samples
+#         # subsample
+#         indices = indices[self.rank : self.total_size : self.num_replicas]
+#         assert len(indices) == self.num_samples
 
-        return iter(indices)
+#         return iter(indices)

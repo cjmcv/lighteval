@@ -56,12 +56,12 @@ from lighteval.utils.utils import EnvConfig, make_results_table
 
 if is_accelerate_available():
     from accelerate import Accelerator, InitProcessGroupKwargs
-if is_nanotron_available():
-    from nanotron import distributed as dist
-    from nanotron.parallel.context import ParallelContext
-    from nanotron.utils import local_ranks_zero_first
+# if is_nanotron_available():
+#     from nanotron import distributed as dist
+#     from nanotron.parallel.context import ParallelContext
+#     from nanotron.utils import local_ranks_zero_first
 
-    from lighteval.models.nanotron_model import NanotronLightevalModel
+#     from lighteval.models.nanotron_model import NanotronLightevalModel
 
 
 import logging
@@ -106,9 +106,9 @@ class PipelineParameters:
         elif self.launcher_type == ParallelismManager.TGI:
             if not is_tgi_available():
                 raise ImportError(NO_TGI_ERROR_MSG)
-        elif self.launcher_type == ParallelismManager.NANOTRON:
-            if not is_nanotron_available():
-                raise ImportError(NO_NANOTRON_ERROR_MSG)
+        # elif self.launcher_type == ParallelismManager.NANOTRON:
+        #     if not is_nanotron_available():
+        #         raise ImportError(NO_NANOTRON_ERROR_MSG)
         elif self.launcher_type == ParallelismManager.OPENAI:
             if not is_openai_available():
                 raise ImportError(NO_OPENAI_ERROR_MSG)
@@ -151,16 +151,16 @@ class Pipeline:
                 raise ValueError("You are trying to launch an accelerate model, but accelerate is not installed")
             accelerator = Accelerator(kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
             test_all_gather(accelerator=accelerator)
-        elif self.launcher_type == ParallelismManager.NANOTRON:
-            if not is_nanotron_available():
-                raise ValueError("You are trying to launch a nanotron model, but nanotron is not installed")
-            dist.initialize_torch_distributed()
-            parallel_context = ParallelContext(
-                tensor_parallel_size=self.model_config.lighteval_config.parallelism.tp,
-                pipeline_parallel_size=self.model_config.lighteval_config.parallelism.pp,
-                data_parallel_size=self.model_config.lighteval_config.parallelism.dp,
-            )
-            test_all_gather(parallel_context=parallel_context)
+        # elif self.launcher_type == ParallelismManager.NANOTRON:
+        #     if not is_nanotron_available():
+        #         raise ValueError("You are trying to launch a nanotron model, but nanotron is not installed")
+        #     dist.initialize_torch_distributed()
+        #     parallel_context = ParallelContext(
+        #         tensor_parallel_size=self.model_config.lighteval_config.parallelism.tp,
+        #         pipeline_parallel_size=self.model_config.lighteval_config.parallelism.pp,
+        #         data_parallel_size=self.model_config.lighteval_config.parallelism.dp,
+        #     )
+        #     test_all_gather(parallel_context=parallel_context)
 
         return accelerator, parallel_context
 
