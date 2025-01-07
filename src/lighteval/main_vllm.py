@@ -25,6 +25,8 @@ from typing import Optional
 from typer import Argument, Option
 from typing_extensions import Annotated
 
+# Default path: ~/.cache/huggingface/datasets
+os.environ["HF_DATASETS_CACHE"] = "~/project/llm_datasets/huggingface"
 
 TOKEN = os.getenv("HF_TOKEN")
 CACHE_DIR: str = os.getenv("HF_HOME", "/scratch")
@@ -93,10 +95,9 @@ def vllm(
     """
     Evaluate models using vllm as backend.
     """
-    import yaml
+    # import yaml
 
     from lighteval.logging.evaluation_tracker import EvaluationTracker
-    from lighteval.models.model_input import GenerationParameters
     from lighteval.models.vllm.vllm_model import VLLMModelConfig
     from lighteval.pipeline import EnvConfig, ParallelismManager, Pipeline, PipelineParameters
 
@@ -126,15 +127,8 @@ def vllm(
         system_prompt=system_prompt,
     )
 
-    if model_args.endswith(".yaml"):
-        with open(model_args, "r") as f:
-            config = yaml.safe_load(f)["model"]
-        generation_parameters = GenerationParameters.from_dict(config)
-        model_config = VLLMModelConfig(config, generation_parameters=generation_parameters)
-
-    else:
-        model_args_dict: dict = {k.split("=")[0]: k.split("=")[1] if "=" in k else True for k in model_args.split(",")}
-        model_config = VLLMModelConfig(**model_args_dict)
+    model_args_dict: dict = {k.split("=")[0]: k.split("=")[1] if "=" in k else True for k in model_args.split(",")}
+    model_config = VLLMModelConfig(**model_args_dict)
 
     pipeline = Pipeline(
         tasks=tasks,

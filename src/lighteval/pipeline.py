@@ -33,36 +33,28 @@ import numpy as np
 
 from lighteval.logging.evaluation_tracker import EvaluationTracker
 from lighteval.metrics.utils.metric_utils import MetricCategory
-from lighteval.models.model_loader import TransformersModel, load_model
+from lighteval.models.vllm.vllm_model import VLLMModel #, VLLMModelConfig
 from lighteval.models.model_output import ModelResponse
 from lighteval.tasks.lighteval_task import LightevalTask, create_requests_from_tasks
 from lighteval.tasks.registry import Registry, taskinfo_selector
 from lighteval.tasks.requests import SampleUid
 from lighteval.utils.imports import (
-    NO_ACCELERATE_ERROR_MSG,
-    NO_NANOTRON_ERROR_MSG,
-    NO_OPENAI_ERROR_MSG,
-    NO_TGI_ERROR_MSG,
+    # NO_ACCELERATE_ERROR_MSG,
+    # NO_NANOTRON_ERROR_MSG,
+    # NO_OPENAI_ERROR_MSG,
+    # NO_TGI_ERROR_MSG,
     NO_VLLM_ERROR_MSG,
-    is_accelerate_available,
-    is_nanotron_available,
-    is_openai_available,
-    is_tgi_available,
+    # is_accelerate_available,
+    # is_openai_available,
+    # is_tgi_available,
     is_vllm_available,
 )
-from lighteval.utils.parallelism import test_all_gather
+# from lighteval.utils.parallelism import test_all_gather
 from lighteval.utils.utils import EnvConfig, make_results_table
 
 
-if is_accelerate_available():
-    from accelerate import Accelerator, InitProcessGroupKwargs
-# if is_nanotron_available():
-#     from nanotron import distributed as dist
-#     from nanotron.parallel.context import ParallelContext
-#     from nanotron.utils import local_ranks_zero_first
-
-#     from lighteval.models.nanotron_model import NanotronLightevalModel
-
+# if is_accelerate_available():
+#     from accelerate import Accelerator, InitProcessGroupKwargs
 
 import logging
 
@@ -97,21 +89,18 @@ class PipelineParameters:
     system_prompt: str | None = None
 
     def __post_init__(self):  # noqa C901
-        if self.launcher_type == ParallelismManager.ACCELERATE:
-            if not is_accelerate_available():
-                raise ImportError(NO_ACCELERATE_ERROR_MSG)
-        elif self.launcher_type == ParallelismManager.VLLM:
+        # if self.launcher_type == ParallelismManager.ACCELERATE:
+        #     if not is_accelerate_available():
+        #         raise ImportError(NO_ACCELERATE_ERROR_MSG)
+        if self.launcher_type == ParallelismManager.VLLM:
             if not is_vllm_available():
                 raise ImportError(NO_VLLM_ERROR_MSG)
-        elif self.launcher_type == ParallelismManager.TGI:
-            if not is_tgi_available():
-                raise ImportError(NO_TGI_ERROR_MSG)
-        # elif self.launcher_type == ParallelismManager.NANOTRON:
-        #     if not is_nanotron_available():
-        #         raise ImportError(NO_NANOTRON_ERROR_MSG)
-        elif self.launcher_type == ParallelismManager.OPENAI:
-            if not is_openai_available():
-                raise ImportError(NO_OPENAI_ERROR_MSG)
+        # elif self.launcher_type == ParallelismManager.TGI:
+        #     if not is_tgi_available():
+        #         raise ImportError(NO_TGI_ERROR_MSG)
+        # elif self.launcher_type == ParallelismManager.OPENAI:
+        #     if not is_openai_available():
+        #         raise ImportError(NO_OPENAI_ERROR_MSG)
 
 
 class Pipeline:
@@ -121,11 +110,7 @@ class Pipeline:
         pipeline_parameters: PipelineParameters,
         evaluation_tracker: EvaluationTracker,
         model_config=None,
-        model=None,
     ):
-        if not (model or model_config):
-            raise ValueError("Must provide either a model or model config when creating a pipeline.")
-
         self.pipeline_parameters = pipeline_parameters
         self.launcher_type = self.pipeline_parameters.launcher_type
         if self.pipeline_parameters.max_samples:
@@ -135,8 +120,10 @@ class Pipeline:
 
         self.model_config = model_config
         self.evaluation_tracker = evaluation_tracker
-        self.accelerator, self.parallel_context = self._init_parallelism_manager()
-        self.model = self._init_model(model_config, model)
+        logger.info("--- LOADING MODEL ---")
+        if not is_vllm_available():
+            raise ImportError(NO_VLLM_ERROR_MSG)
+        self.model = VLLMModel(config=model_config, env_config=self.pipeline_parameters.env_config)
 
         self.evaluation_tracker.general_config_logger.log_model_info(self.model.model_info)
         self._init_tasks_and_requests(tasks=tasks)
@@ -144,54 +131,8 @@ class Pipeline:
         # Final results
         self.final_dict: dict = None
 
-    def _init_parallelism_manager(self):
-        accelerator, parallel_context = None, None
-        if self.launcher_type == ParallelismManager.ACCELERATE:
-            if not is_accelerate_available():
-                raise ValueError("You are trying to launch an accelerate model, but accelerate is not installed")
-            accelerator = Accelerator(kwargs_handlers=[InitProcessGroupKwargs(timeout=timedelta(seconds=3000))])
-            test_all_gather(accelerator=accelerator)
-        # elif self.launcher_type == ParallelismManager.NANOTRON:
-        #     if not is_nanotron_available():
-        #         raise ValueError("You are trying to launch a nanotron model, but nanotron is not installed")
-        #     dist.initialize_torch_distributed()
-        #     parallel_context = ParallelContext(
-        #         tensor_parallel_size=self.model_config.lighteval_config.parallelism.tp,
-        #         pipeline_parallel_size=self.model_config.lighteval_config.parallelism.pp,
-        #         data_parallel_size=self.model_config.lighteval_config.parallelism.dp,
-        #     )
-        #     test_all_gather(parallel_context=parallel_context)
-
-        return accelerator, parallel_context
-
-    def _init_model(self, model_config, model):
-        logger.info("--- LOADING MODEL ---")
-        if model_config is not None:
-            if self.parallel_context:
-                return NanotronLightevalModel(
-                    checkpoint_path=os.path.dirname(self.pipeline_parameters.nanotron_checkpoint_path)
-                    if self.pipeline_parameters.nanotron_checkpoint_path
-                    else "",
-                    nanotron_config=self.model_config,
-                    parallel_context=self.parallel_context,
-                    debug_one_layer_model=False,
-                    model_class=None,
-                    env_config=self.pipeline_parameters.env_config,
-                )
-            else:
-                return load_model(config=model_config, env_config=self.pipeline_parameters.env_config)
-        if isinstance(model, TransformersModel):
-            return model
-        else:
-            return TransformersModel.from_model(
-                model=model,
-                use_chat_template=self.pipeline_parameters.use_chat_template,
-                env_config=self.pipeline_parameters.env_config,
-                accelerator=self.accelerator,
-            )
-
     def _init_tasks_and_requests(self, tasks: str):
-        with local_ranks_zero_first() if self.launcher_type == ParallelismManager.NANOTRON else nullcontext():
+        with nullcontext():
             logger.info("--- LOADING TASKS ---")
             registry = Registry(
                 cache_dir=self.pipeline_parameters.env_config.cache_dir,
@@ -213,7 +154,6 @@ class Pipeline:
                 use_chat_template=self.pipeline_parameters.use_chat_template,
                 system_prompt=self.pipeline_parameters.system_prompt,
             )
-
             self.task_names_list = task_names_list
             self.task_dict = task_dict
             self.fewshot_dict = fewshots_dict
@@ -224,17 +164,6 @@ class Pipeline:
         logger.info("--- INIT SEEDS ---")
         random.seed(1234)
         np.random.seed(1234)
-        if self.accelerator is not None:
-            self.accelerator.wait_for_everyone()
-        if self.parallel_context is not None:
-            dist.barrier()
-
-    def is_main_process(self):
-        if self.accelerator:
-            return self.accelerator.is_main_process
-        if self.parallel_context:
-            return dist.get_rank(self.parallel_context.world_pg) == 0
-        return True
 
     def evaluate(self):
         self.evaluation_tracker.general_config_logger.log_args_info(
@@ -248,18 +177,17 @@ class Pipeline:
         sample_id_to_responses = self._run_model()
         self._compute_metrics(sample_id_to_responses)
 
-        if self.is_main_process():
-            self.evaluation_tracker.general_config_logger.log_end_time()
-            self.evaluation_tracker.metrics_logger.aggregate(task_dict=self.task_dict, bootstrap_iters=1000)
-            self.evaluation_tracker.details_logger.aggregate()
+        self.evaluation_tracker.general_config_logger.log_end_time()
+        self.evaluation_tracker.metrics_logger.aggregate(task_dict=self.task_dict, bootstrap_iters=1000)
+        self.evaluation_tracker.details_logger.aggregate()
 
-            for weights in ["delta", "adapter"]:
-                try:
-                    tmp_weights_dir = f"{self.evaluation_tracker.general_config_logger.model_name}-{weights}-applied"
-                    shutil.rmtree(tmp_weights_dir)
-                    logger.info(f"Removed {tmp_weights_dir}")
-                except OSError:
-                    pass
+        for weights in ["delta", "adapter"]:
+            try:
+                tmp_weights_dir = f"{self.evaluation_tracker.general_config_logger.model_name}-{weights}-applied"
+                shutil.rmtree(tmp_weights_dir)
+                logger.info(f"Removed {tmp_weights_dir}")
+            except OSError:
+                pass
 
     def _run_model(self):
         # Running all requests depending on the model call type (log likelihood, generative, ...)
@@ -330,19 +258,16 @@ class Pipeline:
 
     def save_and_push_results(self):
         logger.info("--- SAVING AND PUSHING RESULTS ---")
-        if self.is_main_process():
-            self.evaluation_tracker.save()
+        self.evaluation_tracker.save()
 
     def _init_final_dict(self):
-        if self.is_main_process():
-            if self.final_dict is None:
-                self.final_dict = self.evaluation_tracker.generate_final_dict()
+        if self.final_dict is None:
+            self.final_dict = self.evaluation_tracker.generate_final_dict()
 
     def show_results(self):
         logger.info("--- DISPLAYING RESULTS ---")
         self._init_final_dict()
-        if self.is_main_process():
-            print(make_results_table(self.final_dict))
+        print(make_results_table(self.final_dict))
 
     def get_results(self):
         self._init_final_dict()

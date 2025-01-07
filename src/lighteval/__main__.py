@@ -25,10 +25,6 @@ import logging.config
 import colorlog
 import typer
 
-import lighteval.main_accelerate
-import lighteval.main_baseline
-import lighteval.main_endpoint
-import lighteval.main_nanotron
 import lighteval.main_tasks
 import lighteval.main_vllm
 
@@ -60,16 +56,7 @@ logging_config = dict(  # noqa C408
 logging.config.dictConfig(logging_config)
 logging.captureWarnings(capture=True)
 
-app.command(rich_help_panel="Evaluation Backends")(lighteval.main_accelerate.accelerate)
-app.command(rich_help_panel="Evaluation Utils")(lighteval.main_baseline.baseline)
-app.command(rich_help_panel="Evaluation Backends")(lighteval.main_nanotron.nanotron)
 app.command(rich_help_panel="Evaluation Backends")(lighteval.main_vllm.vllm)
-app.add_typer(
-    lighteval.main_endpoint.app,
-    name="endpoint",
-    rich_help_panel="Evaluation Backends",
-    help="Evaluate models using some endpoint (tgi, inference endpoint, openai) as backend.",
-)
 app.add_typer(
     lighteval.main_tasks.app,
     name="tasks",
@@ -77,6 +64,42 @@ app.add_typer(
     help="List or inspect tasks.",
 )
 
-
 if __name__ == "__main__":
     app()
+
+# .vscode/launch.json
+#
+# {
+#     // Use IntelliSense to learn about possible attributes.
+#     // Hover to view descriptions of existing attributes.
+#     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+#     "version": "0.2.0",
+#     "configurations": [
+#         {
+#             "name": "Python Debugger: Current File",
+#             "type": "debugpy",
+#             "request": "launch",
+#             "program": "src/lighteval/__main__.py",
+#             "console": "integratedTerminal",
+#             "python": "/home/cjmcv/anaconda3/envs/eval-venv/bin/python",
+#             "args": [
+#                 "vllm",
+#                 "pretrained=/home/cjmcv/project/llm_models/Qwen/Qwen2___5-1___5B-Instruct-AWQ,dtype=float16",
+#                 "leaderboard|mmlu:abstract_algebra|0|0"
+#             ]
+
+#             //// 查看某个任务的具体内容，后面的|0|0 表示
+#             // "args": [
+#             //     "tasks",
+#             //     "inspect",
+#             //     "leaderboard|mmlu:abstract_algebra|0|0"
+#             // ]
+
+#             //// 查看任务列表
+#             // "args": [
+#             //     "tasks",
+#             //     "list"
+#             // ]
+#         }
+#     ]
+# }

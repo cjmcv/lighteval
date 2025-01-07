@@ -43,7 +43,7 @@ from lighteval.tasks.requests import (
     LoglikelihoodRollingRequest,
     LoglikelihoodSingleTokenRequest,
 )
-from lighteval.utils.imports import is_accelerate_available
+# from lighteval.utils.imports import is_accelerate_available
 
 
 class FakeModel(LightevalModel):
@@ -138,12 +138,12 @@ def fake_evaluate_task(
         def get_task_dict(self, task_names: list[str]):
             return task_dict
 
-    # This is due to logger complaining we have no initialised the accelerator
-    # It's hard to mock as it's global singleton
-    if is_accelerate_available():
-        from accelerate import Accelerator
+    # # This is due to logger complaining we have no initialised the accelerator
+    # # It's hard to mock as it's global singleton
+    # if is_accelerate_available():
+    #     from accelerate import Accelerator
 
-        Accelerator()
+    #     Accelerator()
 
     # This is a bit hacky, because there is no way to run end to end, with
     # dynamic task :(, so we just mock the registry

@@ -44,14 +44,14 @@ from lighteval.logging.info_loggers import (
     TaskConfigLogger,
     VersionsLogger,
 )
-from lighteval.utils.imports import NO_TENSORBOARDX_WARN_MSG, is_nanotron_available, is_tensorboardX_available
+from lighteval.utils.imports import NO_TENSORBOARDX_WARN_MSG, is_tensorboardX_available
 from lighteval.utils.utils import obj_to_markdown
 
 
 logger = logging.getLogger(__name__)
 
-if is_nanotron_available():
-    from nanotron.config import GeneralArgs  # type: ignore
+# if is_nanotron_available():
+#     from nanotron.config import GeneralArgs  # type: ignore
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
@@ -496,9 +496,9 @@ class EvaluationTracker:
             logger.warning(NO_TENSORBOARDX_WARN_MSG)
             return
 
-        if not is_nanotron_available():
-            logger.warning("You cannot push results to tensorboard without having nanotron installed. Skipping")
-            return
+        # if not is_nanotron_available():
+        #     logger.warning("You cannot push results to tensorboard without having nanotron installed. Skipping")
+        #     return
 
         prefix = self.tensorboard_metric_prefix
 

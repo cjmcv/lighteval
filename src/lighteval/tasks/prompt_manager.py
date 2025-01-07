@@ -29,7 +29,7 @@ from itertools import cycle
 from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 from lighteval.models.abstract_model import LightevalModel
-from lighteval.models.litellm_model import LiteLLMClient
+# from lighteval.models.litellm_model import LiteLLMClient
 from lighteval.tasks.requests import Doc
 from lighteval.utils.utils import as_list
 
@@ -234,8 +234,8 @@ class PromptManager:
                     toks = [self.model.tok_encode(msg["content"]) for msg in output]
                     toks = [t for ts in toks for t in ts]
 
-        if isinstance(self.model, LiteLLMClient):
-            return output, num_effective_fewshots
+        # if isinstance(self.model, LiteLLMClient):
+        #     return output, num_effective_fewshots
 
         elif use_chat_template:
             return self.model.tokenizer.apply_chat_template(

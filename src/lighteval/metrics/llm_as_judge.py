@@ -28,7 +28,7 @@ from typing import Callable, Literal
 
 from tqdm import tqdm
 
-from lighteval.utils.imports import is_litellm_available, is_openai_available, is_vllm_available
+from lighteval.utils.imports import is_vllm_available
 
 
 logging.getLogger("openai").setLevel(logging.ERROR)
@@ -95,17 +95,17 @@ class JudgeLM:
         match self.backend:
             # Wether we use openai or TGI models, we go through the openai API
             # to route to the endpoint
-            case "openai" | "tgi" if is_openai_available():
-                if self.client is None:
-                    from openai import OpenAI
+            # case "openai" | "tgi" if is_openai_available():
+            #     if self.client is None:
+            #         from openai import OpenAI
 
-                    if self.url is None:
-                        self.client = OpenAI(api_key=self.api_key)
-                    else:
-                        self.client = OpenAI(base_url=self.url, api_key=self.api_key)
-                return self.__call_api_parallel
-            case "litellm" if is_litellm_available():
-                return self.__call_litellm
+            #         if self.url is None:
+            #             self.client = OpenAI(api_key=self.api_key)
+            #         else:
+            #             self.client = OpenAI(base_url=self.url, api_key=self.api_key)
+            #     return self.__call_api_parallel
+            # case "litellm" if is_litellm_available():
+            #     return self.__call_litellm
             case "vllm" if is_vllm_available():
                 if self.pipe is None:
                     from vllm import LLM, SamplingParams
@@ -115,22 +115,22 @@ class JudgeLM:
                     self.tokenizer = get_tokenizer(self.model, tokenizer_mode="auto")
                     self.pipe = LLM(model=self.model, max_model_len=2048, gpu_memory_utilization=0.5, dtype="float16")
                 return self.__call_vllm
-            case "transformers":
-                if self.pipe is None:
-                    import torch
-                    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+            # case "transformers":
+            #     if self.pipe is None:
+            #         import torch
+            #         from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-                    transformers_model = AutoModelForCausalLM.from_pretrained(
-                        self.model, torch_dtype=torch.float16, trust_remote_code=False, device_map="cuda"
-                    )
-                    tokenizer = AutoTokenizer.from_pretrained(self.model)
-                    self.pipe = pipeline(
-                        "text-generation",
-                        model=transformers_model,
-                        tokenizer=tokenizer,
-                        max_new_tokens=256,
-                    )
-                return self.__call_transformers
+            #         transformers_model = AutoModelForCausalLM.from_pretrained(
+            #             self.model, torch_dtype=torch.float16, trust_remote_code=False, device_map="cuda"
+            #         )
+            #         tokenizer = AutoTokenizer.from_pretrained(self.model)
+            #         self.pipe = pipeline(
+            #             "text-generation",
+            #             model=transformers_model,
+            #             tokenizer=tokenizer,
+            #             max_new_tokens=256,
+            #         )
+            #     return self.__call_transformers
             case _:
                 return lambda x: x
 

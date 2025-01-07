@@ -41,7 +41,8 @@ from lighteval.metrics import (
     apply_target_perplexity_metric,
 )
 from lighteval.metrics.metrics import Metric, MetricCategory, Metrics
-from lighteval.models.transformers.transformers_model import TransformersModel
+# from lighteval.models.transformers.transformers_model import TransformersModel
+from lighteval.models.vllm.vllm_model import VLLMModel
 from lighteval.tasks.prompt_manager import PromptManager
 from lighteval.tasks.requests import (
     Doc,
@@ -578,7 +579,7 @@ def create_requests_from_tasks(  # noqa: C901
     task_dict: dict[str, LightevalTask],
     fewshot_dict: dict[str, list[Tuple[int, bool]]],
     num_fewshot_seeds: int,
-    lm: TransformersModel,
+    lm: VLLMModel,
     max_samples: int | None,
     evaluation_tracker: "EvaluationTracker",
     use_chat_template: bool,

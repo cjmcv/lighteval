@@ -21,7 +21,6 @@
 # SOFTWARE.
 
 import gc
-import itertools
 import logging
 import os
 from dataclasses import dataclass
@@ -32,7 +31,7 @@ from tqdm import tqdm
 
 from lighteval.data import GenerativeTaskDataset, LoglikelihoodDataset
 from lighteval.models.abstract_model import LightevalModel, ModelInfo
-from lighteval.models.model_input import GenerationParameters
+# from lighteval.models.model_input import GenerationParameters
 from lighteval.models.model_output import (
     GenerativeResponse,
     LoglikelihoodResponse,
@@ -50,23 +49,15 @@ logger = logging.getLogger(__name__)
 
 
 if is_vllm_available():
-    import ray
-    from more_itertools import distribute
     from vllm import LLM, SamplingParams
-    from vllm.distributed.parallel_state import destroy_distributed_environment, destroy_model_parallel
     from vllm.transformers_utils.tokenizer import get_tokenizer
 
     logging.getLogger("vllm").propagate = True
     logging.getLogger("vllm").handlers.clear()
-
-    logging.getLogger("ray").propagate = True
-    logging.getLogger("ray").handlers.clear()
 else:
     LLM = None
     SamplingParams = None
     get_tokenizer = None
-    ray = None
-    distribute = None
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -92,14 +83,7 @@ class VLLMModelConfig:
         True  # whether to add a space at the start of each continuation in multichoice generation
     )
     pairwise_tokenization: bool = False  # whether to tokenize the context and continuation separately or together.
-    generation_parameters: GenerationParameters = None  # sampling parameters to use for generation
-
     subfolder: Optional[str] = None
-
-    def __post_init__(self):
-        if not self.generation_parameters:
-            self.generation_parameters = GenerationParameters()
-
 
 class VLLMModel(LightevalModel):
     def __init__(
@@ -128,21 +112,21 @@ class VLLMModel(LightevalModel):
         self.precision = _get_dtype(config.dtype, config=self._config)
 
         self.model_info = ModelInfo(model_name=self.model_name, model_sha=self.model_sha)
-        self.sampling_params = SamplingParams(**config.generation_parameters.to_vllm_openai_dict())
+
+        self.sampling_params = SamplingParams(temperature=1.0) # 
         self.pairwise_tokenization = config.pairwise_tokenization
+
+        self.generate_step = 1 # 10个req一起计算
 
     @property
     def tokenizer(self):
         return self._tokenizer
 
     def cleanup(self):
-        destroy_model_parallel()
         if self.model is not None:
             del self.model.llm_engine.model_executor.driver_worker
         self.model = None
         gc.collect()
-        ray.shutdown()
-        destroy_distributed_environment()
         torch.cuda.empty_cache()
 
     @property
@@ -318,45 +302,31 @@ class VLLMModel(LightevalModel):
             sampling_params.max_tokens = max_new_tokens
             sampling_params.stop = stop_tokens
             sampling_params.logprobs = 1 if returns_logits else 0
-
         else:
             sampling_params.temperature = 0
             sampling_params.prompt_logprobs = 1
             sampling_params.max_tokens = 1
             sampling_params.detokenize = False
 
-        if self.data_parallel_size > 1:
-            # vLLM hangs if tensor_parallel > 1 and resources are set in ray.remote
-            # also seems to only work with decorator and not with ray.remote() fn
-            # see https://github.com/vllm-project/vllm/issues/973
-            # note: this has changed on 0.3.3, and it only works now if num_gpus are set.
-            # but then tensor_parallel breaks
-            @ray.remote
-            def run_inference_one_model(model_args: dict, sampling_params: SamplingParams, requests):
-                llm = LLM(**model_args)
-                return llm.generate(prompt_token_ids=requests, sampling_params=sampling_params)
 
-            # dispatch requests to all self.data_parallel_size workers, in interleaved fashion
-            # interleaved important to balance context lengths across workers
-            requests = [list(x) for x in distribute(self.data_parallel_size, inputs)]
-            inputs = ((self.model_args, sampling_params, req) for req in requests)
-            object_refs = [run_inference_one_model.remote(*x) for x in inputs]
-            results = ray.get(object_refs)
-            # Invoke ray.shutdown() to prevent hang-ups if subsequent calls required.
-            ray.shutdown()
-            # flatten results
-            outputs = [
-                x
-                for x in itertools.chain.from_iterable(itertools.zip_longest(*[list(x) for x in results]))
-                if x is not None
-            ]
-        else:
-            outputs = self.model.generate(
-                prompt_token_ids=inputs,
+        chunks = [inputs[i:i + self.generate_step] for i in range(0, len(inputs), self.generate_step)]
+
+        outputs = []
+        for single_chunk in chunks:
+            print("<{}> ".format(chunks.index(single_chunk) * self.generate_step), end='')
+
+            chunk_output = self.model.generate(
+                prompt_token_ids=single_chunk,
                 sampling_params=sampling_params,
-                use_tqdm=True,
+                use_tqdm=False,
             )
+            outputs.extend(chunk_output)
 
+        # outputs = self.model.generate(
+        #     prompt_token_ids=inputs,
+        #     sampling_params=sampling_params,
+        #     use_tqdm=True,
+        # )
         return outputs
 
     def loglikelihood(
