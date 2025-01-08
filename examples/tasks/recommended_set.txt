@@ -1,18 +1,18 @@
 # Commonsense-QA
-helm|commonsenseqa|0|0
-lighteval|ethics:commonsense|0|0
-lighteval|ethics:deontology|0|0
-lighteval|ethics:justice|0|0
-lighteval|ethics:utilitarianism|0|0
-lighteval|ethics:virtue|0|0
+helm|commonsenseqa|0|0                        # (max_tokens must be at least 1, got -1) 常识推理问答选择题 ['A', 'B', 'C', 'D', 'E']。
+lighteval|ethics:commonsense|0|0              # (single_token) ethics伦理，常识 推理问答判断题 [' no', ' yes']。注：这一组五个ethics的，都采用loglikelihood_acc_single_token。
+lighteval|ethics:deontology|0|0               # ethics伦理，义务论 推理问答判断题 [' unreasonable', ' reasonable'] 用到VLLMModel.loglikelihood_single_token (未实现)
+lighteval|ethics:justice|0|0                  #            正义
+lighteval|ethics:utilitarianism|0|0           #            功利
+lighteval|ethics:virtue|0|0                   #            美德
 # MMLU
-leaderboard|mmlu:abstract_algebra|0|0
-leaderboard|mmlu:anatomy|0|0
-leaderboard|mmlu:astronomy|0|0
-leaderboard|mmlu:business_ethics|0|0
-leaderboard|mmlu:clinical_knowledge|0|0
-leaderboard|mmlu:college_biology|0|0
-leaderboard|mmlu:college_chemistry|0|0
+leaderboard|mmlu:abstract_algebra|0|0         # fine，抽象代数，采用loglikelihood_acc
+leaderboard|mmlu:anatomy|0|0                  # fine，解剖学，采用loglikelihood_acc
+leaderboard|mmlu:astronomy|0|0                # fine，天文学
+leaderboard|mmlu:business_ethics|0|0          # fine，商业道德
+leaderboard|mmlu:clinical_knowledge|0|0       # 临床知识
+leaderboard|mmlu:college_biology|0|0          # fine，大学生物，采用loglikelihood_acc。 此类leaderboard的都用loglikelihood_acc，original的都用loglikelihood_acc_single_token
+leaderboard|mmlu:college_chemistry|0|0        # 大学化学，采用loglikelihood_acc
 leaderboard|mmlu:college_computer_science|0|0
 leaderboard|mmlu:college_mathematics|0|0
 leaderboard|mmlu:college_medicine|0|0
@@ -121,40 +121,48 @@ original|mmlu:us_foreign_policy|0|0
 original|mmlu:virology|0|0
 original|mmlu:world_religions|0|0
 original|mmlu|0|0
-# ARC
-leaderboard|arc:challenge|0|0
+# ARC - AI2 Reasoning Challenge
+# 选择题，但答案多样，如
+# [' the atom', ' the electron', ' the nucleus', ' the proton'] 
+# [ ' The chicken population would go down.', 
+#   ' Populations of mice and rats would increase.', 
+#   ' Another bird of prey would replace the hawk.', 
+#   ' The chickens would have a lower rate of disease.']
+leaderboard|arc:challenge|0|0  # fine，4.6k样本。采用loglikelihood_acc / loglikelihood_acc_norm_nospace
 lighteval|arc:easy|0|0
-original|arc:c:letters|0|0
+original|arc:c:letters|0|0     # 选择题 ['A', 'B', 'C', 'D']
 original|arc:c:options|0|0
 original|arc:c:simple|0|0
-# HellaSwag
-helm|hellaswag|0|0
-leaderboard|hellaswag|0|0
+# HellaSwag 常识推理能力
+helm|hellaswag|0|0            # 选择题 [' A', ' B', ' C', ' D']
+leaderboard|hellaswag|0|0     # fine. 很大且慢，估计有4w+，没跑完，手动中断了。采用 loglikelihood_acc / loglikelihood_acc_norm
 # PIQA
-helm|piqa|0|0
-lighteval|piqa|0|0
+helm|piqa|0|0                 # fine. 问答选择题 ['A', 'B'], 采用 em / qem / pem / pqem
+lighteval|piqa|0|0            #       采用loglikelihood_acc / loglikelihood_acc_norm_nospace
 # SIQA
 helm|siqa|0|0
 # WinoGrande
-leaderboard|winogrande|0|0
+leaderboard|winogrande|0|0    # fine. 2530. 常识推理, 采用loglikelihood_acc
 # OpenBookQA
 lighteval|openbookqa|0|0
 helm|openbookqa|0|0
 # TriviaQA
-lighteval|triviaqa|0|0
+lighteval|triviaqa|0|0        # fine. 很大，没跑完。
 # BoolQ
 helm|boolq:contrastset|0|0
 helm|boolq|0|0
 # QUAC
-helm|quac|0|0
-# GSM8K
-leaderboard|gsm8k|0|0
+helm|quac|0|0                 # fine, 很大, 采用 em / qem / f1
+# GSM8K, 小学数学多步推理能力, 有标准解答过程。采用 quasi_exact_match 准精确匹配来判断对错, 会偏差很大. 如qwen2.5-1.5b-awq测出value为 0
+leaderboard|gsm8k|0|0         # 采用 qem=quasi_exact_match_gsm8k
 # MATH
 lighteval|math:algebra|0|0
-lighteval|math:counting_and_probability|0|0
+lighteval|math:counting_and_probability|0|0    # fine, 不算大，没跑完，采用qem和maj@4
 lighteval|math:geometry|0|0
 lighteval|math:intermediate_algebra|0|0
 lighteval|math:number_theory|0|0
 lighteval|math:prealgebra|0|0
 lighteval|math:precalculus|0|0
 # To add: NaturalQuestions, BBH, AGIEval
+
+helm|summarization:cnn-dm|0|0  # failed。摘要，采用 extractiveness

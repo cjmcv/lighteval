@@ -116,7 +116,7 @@ class VLLMModel(LightevalModel):
         self.sampling_params = SamplingParams(temperature=1.0) # 
         self.pairwise_tokenization = config.pairwise_tokenization
 
-        self.generate_step = 1 # 10个req一起计算
+        self.generate_step = 10 # 10个req一起计算
 
     @property
     def tokenizer(self):
@@ -308,7 +308,7 @@ class VLLMModel(LightevalModel):
             sampling_params.max_tokens = 1
             sampling_params.detokenize = False
 
-
+        print("total len: ", len(inputs))
         chunks = [inputs[i:i + self.generate_step] for i in range(0, len(inputs), self.generate_step)]
 
         outputs = []

@@ -20,6 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# 该模块负责管理 语料库层面 出现的所有指标。有些指标（比如语料库级别的 BLEU 值）并非是在单个样本层面进行计算的，而是基于整个语料库来计算。其中许多此类 聚合指标 取自 EleutherAIHarness。
+# 1) matthews_corrcoef: MCC 马修斯相关系数(Matthews Correlation Coefficient), 衡量分类模型预测结果与实际标签之间相关性. 综合考虑了TP/TN/FP/FN的数量，函数输入是一整组的pred和gold，使用sklearn.metrics.matthews_corrcoef实现。
+# 2) CorpusLevelF1Score: 语料库级别的F1Score, Sample级别的是处理单个样本，这个是处理一整组的pred和gold。使用sklearn.metrics.f1_score实现。
+# 3) CorpusLevelTranslationMetric: 翻译指标，使用sacrebleu包的实现，可选指标有 bleu / chrf / ter。
+#                            bleu: Bilingual Evaluation Understudy, 基本原理是n-gram 匹配，即计算pred与gold中 连续的 n 个词或字符 的匹配程度来评估翻译质量。
+#                            chrf: Character n-gram F-score, 基于字符 n-gram 的 F 值，综合考虑了召回率和准确率,用于衡量机器翻译结果与参考译文之间的相似程度。
+#                            ter:  Translation Error Rate 翻译错误率, TER = 编辑距离 / 参考译文单词数量。
+# 4) CorpusLevelPerplexityMetric: 困惑度指标，困惑度表示语言模型对文本的预测能力，衡量语言模型在预测下一个词或字符时的不确定性，通常定义为交叉熵的指数。
+#                                 这里计算的是序列上对数概率平均值，而不同选项有不同的归一化和处理方式，如weighted_perplexity，以单词数量作为对数概率平均值的权重；而bits_per_byte则使用比特数进行归一化，并将结果除以以2为底的对数.
 """This module manages all the metrics occurring at the corpus level.
 Some metrics (such as corpus BLEU) are not computed at the individual item level, but over all the corpus.
 A number of these aggregations come from the EleutherAIHarness

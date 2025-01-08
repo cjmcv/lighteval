@@ -135,6 +135,7 @@ def vllm(
         pipeline_parameters=pipeline_params,
         evaluation_tracker=evaluation_tracker,
         model_config=model_config,
+        max_req_num=200,
     )
 
     pipeline.evaluate()

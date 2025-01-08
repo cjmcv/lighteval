@@ -759,7 +759,7 @@ lighteval|math:intermediate_algebra|0|0
 lighteval|math:number_theory|0|0
 lighteval|math:prealgebra|0|0
 lighteval|math:precalculus|0|0
-lighteval|mathqa|0|0
+lighteval|mathqa|0|0                     mathqa是数学推理能力选择题
 lighteval|mgsm:bn|0|0
 lighteval|mgsm:de|0|0
 lighteval|mgsm:en|0|0
@@ -770,14 +770,14 @@ lighteval|mgsm:ru|0|0
 lighteval|mgsm:sw|0|0
 lighteval|mgsm:te|0|0
 lighteval|mgsm:th|0|0
-lighteval|mgsm:zh|0|0
-leaderboard|mmlu:abstract_algebra|0|0
+lighteval|mgsm:zh|0|0                     mgsm是数学推理能力题，要求逐步解答，zh是中文题的意思
+leaderboard|mmlu:abstract_algebra|0|0     mmlu的都是英文选择题，abstract_algebra是抽象代数
 leaderboard|mmlu:anatomy|0|0
 leaderboard|mmlu:astronomy|0|0
 leaderboard|mmlu:business_ethics|0|0
 leaderboard|mmlu:clinical_knowledge|0|0
 leaderboard|mmlu:college_biology|0|0
-leaderboard|mmlu:college_chemistry|0|0
+leaderboard|mmlu:college_chemistry|0|0    mmlu的都是英文选择题，college_chemistry是大学化学
 leaderboard|mmlu:college_computer_science|0|0
 leaderboard|mmlu:college_mathematics|0|0
 leaderboard|mmlu:college_medicine|0|0

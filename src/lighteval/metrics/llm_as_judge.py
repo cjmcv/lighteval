@@ -93,19 +93,6 @@ class JudgeLM:
 
     def __lazy_load_client(self):
         match self.backend:
-            # Wether we use openai or TGI models, we go through the openai API
-            # to route to the endpoint
-            # case "openai" | "tgi" if is_openai_available():
-            #     if self.client is None:
-            #         from openai import OpenAI
-
-            #         if self.url is None:
-            #             self.client = OpenAI(api_key=self.api_key)
-            #         else:
-            #             self.client = OpenAI(base_url=self.url, api_key=self.api_key)
-            #     return self.__call_api_parallel
-            # case "litellm" if is_litellm_available():
-            #     return self.__call_litellm
             case "vllm" if is_vllm_available():
                 if self.pipe is None:
                     from vllm import LLM, SamplingParams
@@ -115,22 +102,6 @@ class JudgeLM:
                     self.tokenizer = get_tokenizer(self.model, tokenizer_mode="auto")
                     self.pipe = LLM(model=self.model, max_model_len=2048, gpu_memory_utilization=0.5, dtype="float16")
                 return self.__call_vllm
-            # case "transformers":
-            #     if self.pipe is None:
-            #         import torch
-            #         from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-
-            #         transformers_model = AutoModelForCausalLM.from_pretrained(
-            #             self.model, torch_dtype=torch.float16, trust_remote_code=False, device_map="cuda"
-            #         )
-            #         tokenizer = AutoTokenizer.from_pretrained(self.model)
-            #         self.pipe = pipeline(
-            #             "text-generation",
-            #             model=transformers_model,
-            #             tokenizer=tokenizer,
-            #             max_new_tokens=256,
-            #         )
-            #     return self.__call_transformers
             case _:
                 return lambda x: x
 
@@ -171,79 +142,15 @@ class JudgeLM:
             A tuple containing the score, prompts, and judgment.
         """
         # lazy loading of the pipeline
-        judge_function = self.__lazy_load_client()
+        judge_function = self.__lazy_load_client() # 使用指定后端完成推理并拿到结果的函数
         prompt = self.template(question=question, options=options, answer=answer, gold=gold)
-        response = judge_function(prompt)
+        response = judge_function(prompt) # judge模型输出的结果
         score = self.process_judge_response(response)
 
         return score, prompt, response
-
-    def __call_transformers(self, prompt):
-        response = self.pipe(prompt)[0]["generated_text"]
-        response = response[-1]["content"]
-        return response
 
     def __call_vllm(self, prompt):
         tokenized = [self.tokenizer.apply_chat_template(p) for p in prompt]
         output = self.pipe.generate(prompt_token_ids=tokenized, sampling_params=self.sampling_params, use_tqdm=True)
         outputs = [output.outputs[0].text for output in output]
         return outputs
-
-    def __call_litellm(self, prompts):
-        import litellm
-
-        def __call_api(prompt):
-            for _ in range(self.API_MAX_RETRY):
-                try:
-                    response = litellm.completion(
-                        model=self.model,
-                        messages=prompt,
-                        response_format={"type": "text"},
-                        max_tokens=512,
-                        n=1,
-                        caching=True,
-                    )
-                    text = response.choices[0].message.content
-                    return text
-                except Exception as e:
-                    logger.warning(f"{type(e), e}")
-                    time.sleep(self.API_RETRY_SLEEP)
-            raise Exception("Failed to get response from the API")
-
-        results = []
-        with ThreadPoolExecutor(100) as executor:
-            for entry in tqdm(executor.map(__call_api, prompts), total=len(prompts)):
-                results.append(entry)
-
-        if None in results:
-            raise ValueError("Some entries are not annotated due to errors in annotate_p, please inspect and retry.")
-
-        return results
-
-    def __call_api_parallel(self, prompts):
-        results = []
-        with ThreadPoolExecutor(100) as executor:
-            for entry in tqdm(executor.map(self.__call_api, prompts), total=len(prompts)):
-                results.append(entry)
-
-        if None in results:
-            raise ValueError("Some entries are not annotated due to errors in annotate_p, please inspect and retry.")
-
-        return results
-
-    def __call_api(self, prompt):
-        for _ in range(self.API_MAX_RETRY):
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=prompt,
-                    response_format={"type": "text"},
-                    max_tokens=512,
-                    n=1,
-                )
-                text = response.choices[0].message.content
-                return text
-            except Exception as e:
-                logger.warning(f"{type(e), e}")
-                time.sleep(self.API_RETRY_SLEEP)
-        raise Exception("Failed to get response from the API")
