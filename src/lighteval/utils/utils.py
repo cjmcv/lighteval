@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass, is_dataclass
 from typing import Callable, TypeVar, Union
 
 import numpy as np
-from datasets import DatasetDict, load_dataset
+from datasets import DatasetDict, load_dataset, DownloadConfig, load_from_disk, get_dataset_config_info
 from pytablewriter import MarkdownTableWriter
 
 
@@ -220,23 +220,46 @@ def download_dataset_worker(
     trust_dataset: bool,
     dataset_filter: Callable[[dict], bool] | None = None,
     revision: str | None = None,
+    splits: list[str] = [],
 ) -> DatasetDict:
     """
     Worker function to download a dataset from the HuggingFace Hub.
     Used for parallel dataset loading.
     """
-    dataset = load_dataset(
-        path=dataset_path,
-        name=dataset_config_name,
-        data_dir=None,
-        cache_dir=None,
-        download_mode=None,
-        trust_remote_code=trust_dataset,
-        revision=revision,
-    )
+    use_local_files = eval(os.environ.get('HF_DATASETS_FORCE_USE_LOCAL_FILES'))
+    if use_local_files:
+        dataset_cache_dir = os.environ.get('HF_DATASETS_CACHE')+'/'+ dataset_path.replace("/", "___") + "/" + dataset_config_name
+        if not os.path.exists(dataset_cache_dir):
+            raise ValueError(f"dataset_cache_dir {dataset_cache_dir} is not exist.")
+        # Skip the next level of the path
+        contents = os.listdir(dataset_cache_dir)
+        sub_folder = contents[0]
+        dataset_cache_dir = os.path.join(dataset_cache_dir, sub_folder, "")
+        # Get the lastest version
+        versions = [os.path.join(dataset_cache_dir, d) for d in os.listdir(dataset_cache_dir) if os.path.isdir(os.path.join(dataset_cache_dir, d))]
+        latest_version_data_set = max(versions, key=os.path.getmtime) if versions else None
+        # Get all target arrows with splits.
+        arrow_list = os.listdir(latest_version_data_set)
+        # datasets = DatasetDict
+        dataset = []
+        for s in splits:
+            for item in arrow_list:
+                if s in item:
+                    latest_version_test_dataset = os.path.join(latest_version_data_set, item, "")
+                    dataset.append(load_dataset('arrow', data_files=latest_version_test_dataset)['train'])
+    else:
+        dataset = load_dataset(
+            path=dataset_path, # "/home/cjmcv/project/llm_datasets/huggingface/lighteval___mmlu/abstract_algebra/1.0.0/e24764f1fb58c26b5f622157644f2e5fe77e5b01", # dataset_path, # 'lighteval/mmlu' # https://huggingface.co/datasets/lighteval/mmlu
+            name=dataset_config_name, #dataset_config_name, # 'abstract_algebra'
+            data_dir=None, # "/home/cjmcv/project/llm_datasets/huggingface/lighteval___mmlu/abstract_algebra/1.0.0/1789618b211cec2e9545c1a41c62b7c6b2b2ccc0dbb64b7e3c89867b0a538891",
+            cache_dir=None, # os.environ.get('HF_DATASETS_CACHE'),   # os.environ.get('HF_DATASETS_CACHE')
+            download_mode=None,
+            trust_remote_code=trust_dataset,
+            revision=revision,
+        )
 
     if dataset_filter is not None:
-        dataset = dataset.filter(dataset_filter)
+        dataset = dataset.filter(dataset_filter)  # 如果是加载离线数据，则这里不能调用
 
     # It returns DatasetDict because we don't specify a split
     return dataset  # type: ignore

@@ -26,7 +26,9 @@ from typer import Argument, Option
 from typing_extensions import Annotated
 
 # Default path: ~/.cache/huggingface/datasets
-os.environ["HF_DATASETS_CACHE"] = "~/project/llm_datasets/huggingface"
+os.environ["HF_DATASETS_CACHE"] = "/home/cjmcv/project/llm_datasets/huggingface" 
+os.environ["HF_DATASETS_FORCE_USE_LOCAL_FILES"] = "True"
+os.environ["USING_API_SERVER"] = "False"
 
 TOKEN = os.getenv("HF_TOKEN")
 CACHE_DIR: str = os.getenv("HF_HOME", "/scratch")

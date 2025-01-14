@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
 import collections
 import inspect
 import logging
@@ -274,6 +275,7 @@ class LightevalTask:
         Returns:
             list[Doc]: List of documents.
         """
+        splits = as_list(splits)
         if self.dataset is None:
             self.dataset = download_dataset_worker(
                 self.dataset_path,
@@ -281,22 +283,38 @@ class LightevalTask:
                 self.trust_dataset,
                 self.dataset_filter,
                 self.dataset_revision,
+                splits,
             )
-        splits = as_list(splits)
-
+        
         docs = []
-        for split in splits:
-            for ix, item in enumerate(self.dataset[split]):
-                # Some tasks formatting is applied differently when the document is used for fewshot examples
-                # vs when it's used for the actual prompt. That's why we store whether we are currently using the
-                # doc for a fewshot sample (few_shots=True) or not, which then leads to the creation of a different Doc.
-                item["__few_shots"] = few_shots
-                # Some tasks require to know which is the current item index in order to apply a different prompt template
-                item["__index"] = ix
-                cur_docs = self.formatter(item, self.name)
-                if cur_docs is None:
-                    continue
-                docs.extend(as_list(cur_docs))
+        use_local_files = eval(os.environ.get('HF_DATASETS_FORCE_USE_LOCAL_FILES'))
+        if use_local_files:
+            for ds in self.dataset:
+                for ix, item in enumerate(ds):
+                    # Some tasks formatting is applied differently when the document is used for fewshot examples
+                    # vs when it's used for the actual prompt. That's why we store whether we are currently using the
+                    # doc for a fewshot sample (few_shots=True) or not, which then leads to the creation of a different Doc.
+                    item["__few_shots"] = few_shots
+                    # Some tasks require to know which is the current item index in order to apply a different prompt template
+                    item["__index"] = ix
+                    cur_docs = self.formatter(item, self.name)
+                    if cur_docs is None:
+                        continue
+                    docs.extend(as_list(cur_docs))
+        else:
+            for split in splits:
+                for ix, item in enumerate(self.dataset[split]):
+                    # Some tasks formatting is applied differently when the document is used for fewshot examples
+                    # vs when it's used for the actual prompt. That's why we store whether we are currently using the
+                    # doc for a fewshot sample (few_shots=True) or not, which then leads to the creation of a different Doc.
+                    item["__few_shots"] = few_shots
+                    # Some tasks require to know which is the current item index in order to apply a different prompt template
+                    item["__index"] = ix
+                    cur_docs = self.formatter(item, self.name)
+                    if cur_docs is None:
+                        continue
+                    docs.extend(as_list(cur_docs))
+
         return docs
 
     def remove_duplicate_docs(self, docs: list[Doc]) -> list[Doc]:

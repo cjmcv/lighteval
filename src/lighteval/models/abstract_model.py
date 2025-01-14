@@ -159,6 +159,7 @@ class LightevalModel(ABC):
             return_tensors="pt",
         )
 
+    # 通过处理两者之间的空格，对上下文与后续内容的组合进行编码。
     def tok_encode_pair(self, context, continuation, pairwise: bool = False):
         """Encodes a context, continuation pair by taking care of the spaces in between.
         Args:

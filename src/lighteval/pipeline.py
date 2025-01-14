@@ -39,28 +39,15 @@ from lighteval.tasks.lighteval_task import LightevalTask, create_requests_from_t
 from lighteval.tasks.registry import Registry, taskinfo_selector
 from lighteval.tasks.requests import SampleUid
 from lighteval.utils.imports import (
-    # NO_ACCELERATE_ERROR_MSG,
-    # NO_NANOTRON_ERROR_MSG,
-    # NO_OPENAI_ERROR_MSG,
-    # NO_TGI_ERROR_MSG,
     NO_VLLM_ERROR_MSG,
-    # is_accelerate_available,
-    # is_openai_available,
-    # is_tgi_available,
     is_vllm_available,
 )
 # from lighteval.utils.parallelism import test_all_gather
 from lighteval.utils.utils import EnvConfig, make_results_table
 
-
-# if is_accelerate_available():
-#     from accelerate import Accelerator, InitProcessGroupKwargs
-
 import logging
 
-
 logger = logging.getLogger(__name__)
-
 
 class ParallelismManager(Enum):
     ACCELERATE = auto()
@@ -89,19 +76,9 @@ class PipelineParameters:
     system_prompt: str | None = None
 
     def __post_init__(self):  # noqa C901
-        # if self.launcher_type == ParallelismManager.ACCELERATE:
-        #     if not is_accelerate_available():
-        #         raise ImportError(NO_ACCELERATE_ERROR_MSG)
         if self.launcher_type == ParallelismManager.VLLM:
             if not is_vllm_available():
                 raise ImportError(NO_VLLM_ERROR_MSG)
-        # elif self.launcher_type == ParallelismManager.TGI:
-        #     if not is_tgi_available():
-        #         raise ImportError(NO_TGI_ERROR_MSG)
-        # elif self.launcher_type == ParallelismManager.OPENAI:
-        #     if not is_openai_available():
-        #         raise ImportError(NO_OPENAI_ERROR_MSG)
-
 
 class Pipeline:
     def __init__(
@@ -118,20 +95,22 @@ class Pipeline:
             logger.warning(
                 "--max_samples WAS SET. THESE NUMBERS ARE ONLY PARTIAL AND SHOULD NOT BE USED FOR COMPARISON UNLESS YOU KNOW WHAT YOU ARE DOING."
             )
-
-        self.model_config = model_config
         self.evaluation_tracker = evaluation_tracker
+
+        # Model.
+        self.model_config = model_config
         logger.info("--- LOADING MODEL ---")
         if not is_vllm_available():
             raise ImportError(NO_VLLM_ERROR_MSG)
         self.model = VLLMModel(config=model_config, env_config=self.pipeline_parameters.env_config)
-
         self.evaluation_tracker.general_config_logger.log_model_info(self.model.model_info)
+
+        # Get requests
         self._init_tasks_and_requests(tasks=tasks, max_req_num=max_req_num)
         self._init_random_seeds()
         # Final results
         self.final_dict: dict = None
-
+        
     def _init_tasks_and_requests(self, tasks: str, max_req_num: int):
         with nullcontext():
             logger.info("--- LOADING TASKS ---")
@@ -141,7 +120,7 @@ class Pipeline:
             )
             task_names_list, fewshots_dict = taskinfo_selector(tasks, registry)
             task_dict = registry.get_task_dict(task_names_list)
-            LightevalTask.load_datasets(list(task_dict.values()), self.pipeline_parameters.dataset_loading_processes)
+            # LightevalTask.load_datasets(list(task_dict.values()), self.pipeline_parameters.dataset_loading_processes)
 
             self.evaluation_tracker.task_config_logger.log(task_dict)
 

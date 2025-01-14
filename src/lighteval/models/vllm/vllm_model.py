@@ -23,7 +23,7 @@
 import gc
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Optional
 
 import torch
@@ -44,8 +44,44 @@ from lighteval.tasks.requests import (
 from lighteval.utils.imports import is_vllm_available
 from lighteval.utils.utils import EnvConfig, as_list
 
+###################
+import time
+import openai
+from concurrent.futures import ThreadPoolExecutor
+###################
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class GenerationParameters:
+    early_stopping: Optional[bool] = None  # vllm, transformers
+    repetition_penalty: Optional[float] = None  # vllm, transformers, tgi
+    frequency_penalty: Optional[float] = None  # vllm, tgi
+    length_penalty: Optional[float] = None  # vllm, transformers
+    presence_penalty: Optional[float] = None  # vllm
+
+    max_new_tokens: Optional[int] = None  # vllm, transformers, tgi
+    min_new_tokens: Optional[int] = None  # vllm, transformers
+
+    seed: Optional[int] = None  # vllm, tgi
+    stop_tokens: Optional[list[str]] = None  # vllm, transformers, tgi
+    temperature: Optional[float] = None  # vllm, transformers, tgi
+    top_k: Optional[int] = None  # vllm, transformers, tgi
+    min_p: Optional[float] = None  # vllm, transformers
+    top_p: Optional[int] = None  # vllm, transformers, tgi
+    truncate_prompt: Optional[bool] = None  # vllm, tgi
+
+    def to_vllm_openai_dict(self) -> dict:
+        """Selects relevant generation and sampling parameters for vllm and openai models.
+        Doc: https://docs.vllm.ai/en/v0.5.5/dev/sampling_params.html
+
+        Returns:
+            dict: The parameters to create a vllm.SamplingParams or just provide OpenAI params as such in the model config.
+        """
+        # Task specific sampling params to set in model: n, best_of, use_beam_search
+        # Generation specific params to set in model: logprobs, prompt_logprobs
+        return {k: v for k, v in asdict(self).items() if v is not None}
 
 
 if is_vllm_available():
@@ -62,7 +98,6 @@ else:
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 STARTING_BATCH_SIZE = 512
-
 
 @dataclass
 class VLLMModelConfig:
@@ -101,8 +136,51 @@ class VLLMModel(LightevalModel):
 
         self._max_length = int(config.max_model_length) if config.max_model_length is not None else None
 
-        # If model_parallel is not set we compare the number of processes with the number of GPUs
-        self.model = self._create_auto_model(config, env_config)
+        self.generation_parameters = GenerationParameters() # TODO
+
+        is_api_server = eval(os.environ.get('USING_API_SERVER'))
+        if is_api_server:
+            self.API_MAX_RETRY = 5
+            self.API_RETRY_SLEEP = 3
+            self.API_RETRY_MULTIPLIER = 2
+            self.CONCURENT_CALLS = 4
+
+            self.client = openai.Client(base_url="http://127.0.0.1:30000/v1", api_key="EMPTY")
+            self.sampling_params = self.generation_parameters.to_vllm_openai_dict()
+
+            self.model = None
+            # # Set url
+            # arg_backend = "sglang"
+            # arg_base_url = None
+            # arg_host = "127.0.0.1"
+
+            # port = {
+            #     "sglang": 30000,
+            #     "lmdeploy": 23333,
+            #     "vllm": 8000,
+            # }.get(arg_backend, 30000)
+
+            # self.model_url = (
+            #     f"{arg_base_url}/v1/models"
+            #     if arg_base_url
+            #     else f"http://{arg_host}:{port}/v1/models"
+            # )
+
+            # if arg_backend in ["sglang", "vllm", "lmdeploy"]:
+            #     self.api_url = (
+            #         f"{arg_base_url}/v1/completions"
+            #         if arg_base_url
+            #         else f"http://{arg_host}:{port}/v1/completions"
+            #     )
+            # self.base_url = (
+            #     f"http://{arg_host}:{port}" if arg_base_url is None else arg_base_url
+            # )
+            # print("model_url: ", self.model_url)
+            # print("base_url: ", self.base_url)
+        else:
+            # If model_parallel is not set we compare the number of processes with the number of GPUs
+            self.model = self._create_auto_model(config, env_config)
+            self.sampling_params = SamplingParams(**self.generation_parameters.to_vllm_openai_dict())
 
         # self._device = config.accelerator.device if config.accelerator is not None else "cpu"
         self.multichoice_continuations_start_space = config.multichoice_continuations_start_space
@@ -112,8 +190,6 @@ class VLLMModel(LightevalModel):
         self.precision = _get_dtype(config.dtype, config=self._config)
 
         self.model_info = ModelInfo(model_name=self.model_name, model_sha=self.model_sha)
-
-        self.sampling_params = SamplingParams(temperature=1.0) # 
         self.pairwise_tokenization = config.pairwise_tokenization
 
         self.generate_step = 10 # 10个req一起计算
@@ -338,10 +414,69 @@ class VLLMModel(LightevalModel):
                 request.tokenized_continuation = self.tok_encode(request.choice)
             else:
                 # The following line is mandatory for compatibility with the harness
+                # tokenized_context是原来输入问题的内容，经过tokenize后的id序列
+                # tokenized_continuation是后续拼接到输入问题内容上的部分，如对于abcd4项选择题，生成请求时会将一个问题生成4个请求。
+                #    如问题：1+1等于几？选项：a/b/c/d，生成请求1）1+1等于几？a；2）1+1等于几？b；3）1+1等于几？c；4）1+1等于几？d； 
+                #           以限制输出范围，便于与固定答案进行对比评估。详情搜 def construct_requests / class Request
+                #    则tokenized_context对应“1+1等于几？”，四个请求都一样。tokenized_continuation 分别是a/b/c/d。
                 request.tokenized_context, request.tokenized_continuation = self.tok_encode_pair(
                     request.context, request.choice, pairwise=self.pairwise_tokenization
                 )
         return self._loglikelihood_tokens(requests, override_bs=override_bs)
+    
+    ###################################################################################
+
+    def __call_api(self, prompt, return_logits, max_new_tokens, num_samples, logit_bias):
+        for _ in range(self.API_MAX_RETRY):
+            try:
+                response = self.client.chat.completions.create(
+                    model="default",
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "text"},
+                    max_tokens=max_new_tokens if max_new_tokens > 0 else None,
+                    logprobs=return_logits,
+                    logit_bias=logit_bias,
+                    n=num_samples,
+                    **self.sampling_params,
+                )
+                return response
+            except Exception as e:
+                logger.warning(f"{type(e), e}")
+                time.sleep(self.API_RETRY_SLEEP)
+                self.API_RETRY_SLEEP = self.API_RETRY_SLEEP**self.API_RETRY_MULTIPLIER
+        raise Exception("Failed to get response from the API")
+
+    def __call_api_parallel(
+        self,
+        prompts,
+        return_logits: bool | list[bool],
+        max_new_tokens: int | list[int],
+        num_samples: int | list[int],
+        logit_bias: list[dict[int, float]] | None = None,
+    ):
+        results = []
+
+        return_logitss = [return_logits for _ in prompts] if not isinstance(return_logits, list) else return_logits
+        max_new_tokenss = [max_new_tokens for _ in prompts] if not isinstance(max_new_tokens, list) else max_new_tokens
+        num_sampless = [num_samples for _ in prompts] if not isinstance(num_samples, list) else num_samples
+        logit_biass = [logit_bias for _ in prompts] if logit_bias is None else logit_bias
+
+        assert (
+            len(prompts) == len(return_logitss) == len(max_new_tokenss) == len(num_sampless) == len(logit_biass)
+        ), "Length of prompts, return_logitss, max_new_tokenss, num_sampless, logit_biass should be same"
+
+        with ThreadPoolExecutor(self.CONCURENT_CALLS) as executor:
+            for entry in tqdm(
+                executor.map(self.__call_api, prompts, return_logitss, max_new_tokenss, num_sampless, logit_biass),
+                total=len(prompts),
+            ):
+                results.append(entry)
+
+        if None in results:
+            raise ValueError("Some entries are not annotated due to errors in annotate_p, please inspect and retry.")
+
+        return results
+    #######################################################################################
 
     def _loglikelihood_tokens(
         self,
@@ -353,25 +488,53 @@ class VLLMModel(LightevalModel):
         dataset = LoglikelihoodDataset(requests=requests, num_dataset_splits=1)
         res = []
 
-        for _ in tqdm(dataset.splits_start_end_iterator()):
-            # the last token is an eos token, so we don't need to add it
-            inputs = [dataset[i].tokenized_context + dataset[i].tokenized_continuation for i in range(len(dataset))]
-            # Left truncate the inputs to the maximum length
-            inputs = [input[-self.max_length :] for input in inputs]
-            outputs = self._generate(inputs, generate=False)
+        is_api_server = eval(os.environ.get('USING_API_SERVER'))
+        if is_api_server:
+            for _ in tqdm(dataset.splits_start_end_iterator()):
+                inputs = [dataset[i].context for i in range(len(dataset))]
+                logit_biass = []
+                max_new_tokens = [len(dataset[i].tokenized_continuation) for i in range(len(dataset))]
 
-            for output, input in zip(outputs, dataset):
-                continuation_logprobs = []
-                for token, logprobs in zip(input.tokenized_continuation[::-1], output.prompt_logprobs[::-1]):
-                    continuation_logprobs.append(logprobs[token])
-                bool_score = all(logprob.rank == 1 for logprob in continuation_logprobs)
-                continuation_logprobs = [logprob.logprob for logprob in continuation_logprobs]
-                answer = LoglikelihoodResponse(
-                    input_tokens=input.tokenized_context + input.tokenized_continuation,
-                    generated_tokens=input.tokenized_continuation,
-                    result=(sum(continuation_logprobs), bool_score if return_bool_score else None),
+                assert all(
+                    new_tokens == 1 for new_tokens in max_new_tokens
+                ), "Only single token continuations are supported when using openai API."
+
+                for i in range(len(dataset)):
+                    logit_bias = {tok: 100 for tok in dataset[i].tokenized_continuation}
+                    logit_biass.append(logit_bias)
+
+                outputs = self.__call_api_parallel(
+                    inputs, return_logits=True, max_new_tokens=max_new_tokens, num_samples=1, logit_bias=logit_biass
                 )
-                res.append(answer)
+
+                for output, input in zip(outputs, dataset):
+                    continuation_logprobs = [content.logprob for content in output.choices[0].logprobs.content]
+                    answer = LoglikelihoodResponse(
+                        input_tokens=input.tokenized_context + input.tokenized_continuation,
+                        generated_tokens=input.tokenized_continuation,
+                        result=(sum(continuation_logprobs), None),
+                    )
+                    res.append(answer)
+        else:
+            for _ in tqdm(dataset.splits_start_end_iterator()):
+                # the last token is an eos token, so we don't need to add it
+                inputs = [dataset[i].tokenized_context + dataset[i].tokenized_continuation for i in range(len(dataset))]
+                # Left truncate the inputs to the maximum length
+                inputs = [input[-self.max_length :] for input in inputs]
+                outputs = self._generate(inputs, generate=False)
+
+                for output, input in zip(outputs, dataset):
+                    continuation_logprobs = []
+                    for token, logprobs in zip(input.tokenized_continuation[::-1], output.prompt_logprobs[::-1]):
+                        continuation_logprobs.append(logprobs[token])
+                    bool_score = all(logprob.rank == 1 for logprob in continuation_logprobs)
+                    continuation_logprobs = [logprob.logprob for logprob in continuation_logprobs]
+                    answer = LoglikelihoodResponse(
+                        input_tokens=input.tokenized_context + input.tokenized_continuation,
+                        generated_tokens=input.tokenized_continuation,
+                        result=(sum(continuation_logprobs), bool_score if return_bool_score else None),
+                    )
+                    res.append(answer)
 
         return dataset.get_original_order(res)
 

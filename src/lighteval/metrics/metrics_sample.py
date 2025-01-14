@@ -28,7 +28,7 @@
 # 4) NormalizedMultiChoiceProbability: 与LoglikelihoodAcc很相似, 区别在于LoglikelihoodAcc取argmax,即拿到下标; 
 #                                      而它是逐个先除以 np.sum(np.exp(normalized_log_probs)) 后, 再取最大值, 拿到的是最大的概率分数，而不是分数的下标。
 # 5) Probability: 返回gold choice的分数，如有多个，则返回最大值
-# 6) Recall: 判断top k的答案中是否包含gold choice。
+# 6) Recall: 判断多个最优的答案中是否包含gold choice。
 # 7) MRR (Mean Reciprocal Rank 平均倒数排名): 衡量模型将正确答案排在多高位置，如果正确答案排名越靠前，MRR 值越高，说明模型的排序效果越好。
 # 8) ROUGE (Recall-Oriented Understudy for Gisting Evaluation, 以召回率为导向的文本生成的质量评估指标)，直接使用python包rouge_score完成计算。
 #          这里选取的"rouge1", "rouge2", "rougeL", "rougeLsum"。

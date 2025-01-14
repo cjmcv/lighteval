@@ -23,18 +23,17 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 
-
 class MetricCategory(str, Enum):
-    TARGET_PERPLEXITY = auto()
-    PERPLEXITY = auto()
-    GENERATIVE = auto()
-    GENERATIVE_LOGPROB = auto()
-    GENERATIVE_SAMPLING = auto()
-    LLM_AS_JUDGE_MULTI_TURN = auto()
-    LLM_AS_JUDGE = auto()
-    MULTICHOICE = auto()
-    MULTICHOICE_PMI = auto()
-    MULTICHOICE_ONE_TOKEN = auto()
+    TARGET_PERPLEXITY = auto()    # 目标困惑度
+    PERPLEXITY = auto()           # 目标困惑度
+    GENERATIVE = auto()           # 生成式
+    GENERATIVE_LOGPROB = auto()   # 生成式-对数概率
+    GENERATIVE_SAMPLING = auto()  # 生成式-样本  
+    LLM_AS_JUDGE_MULTI_TURN = auto()  # 使用llm充当judge，多轮对话
+    LLM_AS_JUDGE = auto()             # 使用llm充当judge
+    MULTICHOICE = auto()              # 多选
+    MULTICHOICE_PMI = auto()          # 多选
+    MULTICHOICE_ONE_TOKEN = auto()    # 多选，单token
     IGNORED = auto()
 
 
