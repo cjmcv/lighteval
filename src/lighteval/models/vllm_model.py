@@ -24,19 +24,18 @@ import gc
 import logging
 import os
 from dataclasses import asdict, dataclass
-from typing import Optional
-
+from typing import Optional, Union
+from transformers import AutoConfig
 import torch
 from tqdm import tqdm
 
 from lighteval.data import GenerativeTaskDataset, LoglikelihoodDataset
 from lighteval.models.abstract_model import LightevalModel, ModelInfo
-# from lighteval.models.model_input import GenerationParameters
+
 from lighteval.models.model_output import (
     GenerativeResponse,
     LoglikelihoodResponse,
 )
-from lighteval.models.utils import _get_dtype, _simplify_name
 from lighteval.tasks.requests import (
     GreedyUntilRequest,
     LoglikelihoodRequest,
@@ -52,6 +51,62 @@ from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
+
+def _get_dtype(dtype: Union[str, torch.dtype, None], config: Optional[AutoConfig] = None) -> Optional[torch.dtype]:
+    """
+    Get the torch dtype based on the input arguments.
+
+    Args:
+        dtype (Union[str, torch.dtype]): The desired dtype. Can be a string or a torch dtype.
+        config (Optional[transformers.AutoConfig]): The model config object. Defaults to None.
+
+    Returns:
+        torch.dtype: The torch dtype based on the input arguments.
+    """
+
+    if config is not None and hasattr(config, "quantization_config"):
+        # must be infered
+        return None
+
+    if dtype is not None:
+        if isinstance(dtype, str) and dtype not in ["auto", "4bit", "8bit"]:
+            # Convert `str` args torch dtype: `float16` -> `torch.float16`
+            return getattr(torch, dtype)
+        elif isinstance(dtype, torch.dtype):
+            return dtype
+
+    if config is not None:
+        return config.torch_dtype
+
+    return None
+
+
+def _simplify_name(name_or_path: str) -> str:
+    """
+    If the model is loaded from disk, then the name will have the following format:
+    /p/a/t/h/models--org--model_name/revision/model_files
+    This function return the model_name as if it was loaded from the hub:
+    org/model_name
+
+    Args:
+        name_or_path (str): The name or path to be simplified.
+
+    Returns:
+        str: The simplified name.
+    """
+    if os.path.isdir(name_or_path) or os.path.isfile(name_or_path):  # Loading from disk
+        simple_name_list = name_or_path.split("/")
+        # The following manages files stored on disk, loaded with the hub model format:
+        # /p/a/t/h/models--org--model_name/revision/model_files
+        if any("models--" in item for item in simple_name_list):  # Hub format
+            simple_name = [item for item in simple_name_list if "models--" in item][0]
+            simple_name = simple_name.replace("models--", "").replace("--", "/")
+            return simple_name
+        # This is for custom folders
+        else:  # Just a folder, we don't know the shape
+            return name_or_path.replace("/", "_")
+
+    return name_or_path
 
 @dataclass
 class GenerationParameters:
@@ -87,7 +142,7 @@ class GenerationParameters:
 if is_vllm_available():
     from vllm import LLM, SamplingParams
     from vllm.transformers_utils.tokenizer import get_tokenizer
-
+    from vllm.distributed.parallel_state import destroy_distributed_environment, destroy_model_parallel
     logging.getLogger("vllm").propagate = True
     logging.getLogger("vllm").handlers.clear()
 else:
@@ -100,36 +155,31 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 STARTING_BATCH_SIZE = 512
 
 @dataclass
-class VLLMModelConfig:
+class ModelConfig:
     pretrained: str
     gpu_memory_utilisation: float = 0.9  # lower this if you are running out of memory
     revision: str = "main"  # revision of the model
     dtype: str | None = None
     tensor_parallel_size: int = 1  # how many GPUs to use for tensor parallelism
     pipeline_parallel_size: int = 1  # how many GPUs to use for pipeline parallelism
-    data_parallel_size: int = 1  # how many GPUs to use for data parallelism
     max_model_length: int = 4096 # | None = None  # maximum length of the model, ussually infered automatically. reduce this if you encouter OOM issues, 4096 is usually enough
     swap_space: int = 4  # CPU swap space size (GiB) per GPU.
     seed: int = 1234
     trust_remote_code: bool = False
     use_chat_template: bool = False
     add_special_tokens: bool = True
-    multichoice_continuations_start_space: bool = (
-        True  # whether to add a space at the start of each continuation in multichoice generation
-    )
     pairwise_tokenization: bool = False  # whether to tokenize the context and continuation separately or together.
     subfolder: Optional[str] = None
 
 class VLLMModel(LightevalModel):
     def __init__(
         self,
-        config: VLLMModelConfig,
+        config: ModelConfig,
         env_config: EnvConfig,
     ):
         """Initializes a HuggingFace `AutoModel` and `AutoTokenizer` for evaluation."""
         self._config = config
         self.use_chat_template = config.use_chat_template
-        self.data_parallel_size = int(config.data_parallel_size)
 
         self._add_special_tokens = config.add_special_tokens if config.add_special_tokens is not None else False
         self._tokenizer = self._create_auto_tokenizer(config, env_config)
@@ -140,50 +190,25 @@ class VLLMModel(LightevalModel):
 
         is_api_server = eval(os.environ.get('USING_API_SERVER'))
         if is_api_server:
+            backend = "sglang"
+            port = {
+                "sglang": 30000,
+                "lmdeploy": 23333,
+                "vllm": 8000,
+            }.get(backend, 30000)
+
             self.API_MAX_RETRY = 5
             self.API_RETRY_SLEEP = 3
             self.API_RETRY_MULTIPLIER = 2
             self.CONCURENT_CALLS = 4
 
-            self.client = openai.Client(base_url="http://127.0.0.1:30000/v1", api_key="EMPTY")
+            self.client = openai.Client(base_url=f"http://127.0.0.1:{port}/v1", api_key="EMPTY")
             self.sampling_params = self.generation_parameters.to_vllm_openai_dict()
-
             self.model = None
-            # # Set url
-            # arg_backend = "sglang"
-            # arg_base_url = None
-            # arg_host = "127.0.0.1"
-
-            # port = {
-            #     "sglang": 30000,
-            #     "lmdeploy": 23333,
-            #     "vllm": 8000,
-            # }.get(arg_backend, 30000)
-
-            # self.model_url = (
-            #     f"{arg_base_url}/v1/models"
-            #     if arg_base_url
-            #     else f"http://{arg_host}:{port}/v1/models"
-            # )
-
-            # if arg_backend in ["sglang", "vllm", "lmdeploy"]:
-            #     self.api_url = (
-            #         f"{arg_base_url}/v1/completions"
-            #         if arg_base_url
-            #         else f"http://{arg_host}:{port}/v1/completions"
-            #     )
-            # self.base_url = (
-            #     f"http://{arg_host}:{port}" if arg_base_url is None else arg_base_url
-            # )
-            # print("model_url: ", self.model_url)
-            # print("base_url: ", self.base_url)
         else:
             # If model_parallel is not set we compare the number of processes with the number of GPUs
             self.model = self._create_auto_model(config, env_config)
             self.sampling_params = SamplingParams(**self.generation_parameters.to_vllm_openai_dict())
-
-        # self._device = config.accelerator.device if config.accelerator is not None else "cpu"
-        self.multichoice_continuations_start_space = config.multichoice_continuations_start_space
 
         self.model_name = _simplify_name(config.pretrained)
         self.model_sha = ""  # config.get_model_sha()
@@ -199,10 +224,12 @@ class VLLMModel(LightevalModel):
         return self._tokenizer
 
     def cleanup(self):
+        destroy_model_parallel()
         if self.model is not None:
             del self.model.llm_engine.model_executor.driver_worker
         self.model = None
         gc.collect()
+        destroy_distributed_environment()
         torch.cuda.empty_cache()
 
     @property
@@ -213,7 +240,7 @@ class VLLMModel(LightevalModel):
     def max_length(self) -> int:
         return self._max_length
 
-    def _create_auto_model(self, config: VLLMModelConfig, env_config: EnvConfig) -> Optional[LLM]:
+    def _create_auto_model(self, config: ModelConfig, env_config: EnvConfig) -> Optional[LLM]:
         """
         Creates an instance of the pretrained HF model.
 
@@ -243,10 +270,6 @@ class VLLMModel(LightevalModel):
             "swap_space": 4,
             "seed": 1234,
         }
-        if int(config.data_parallel_size) > 1:
-            self.model_args["worker_use_ray"] = True
-            self._batch_size = "auto"
-            return None
 
         model = LLM(**self.model_args)
 
@@ -258,7 +281,7 @@ class VLLMModel(LightevalModel):
 
         return model
 
-    def _create_auto_tokenizer(self, config: VLLMModelConfig, env_config: EnvConfig):
+    def _create_auto_tokenizer(self, config: ModelConfig, env_config: EnvConfig):
         tokenizer = get_tokenizer(
             config.pretrained,
             tokenizer_mode="auto",

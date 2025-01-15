@@ -33,7 +33,7 @@ import numpy as np
 
 from lighteval.logging.evaluation_tracker import EvaluationTracker
 from lighteval.metrics.utils.metric_utils import MetricCategory
-from lighteval.models.vllm.vllm_model import VLLMModel #, VLLMModelConfig
+from lighteval.models.vllm_model import VLLMModel #, ModelConfig
 from lighteval.models.model_output import ModelResponse
 from lighteval.tasks.lighteval_task import LightevalTask, create_requests_from_tasks
 from lighteval.tasks.registry import Registry, taskinfo_selector
@@ -49,18 +49,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class ParallelismManager(Enum):
-    ACCELERATE = auto()
-    NANOTRON = auto()
-    TGI = auto()
-    OPENAI = auto()
-    VLLM = auto()
-    NONE = auto()
-
-
 @dataclass
 class PipelineParameters:
-    launcher_type: ParallelismManager
     # Env parameters
     env_config: EnvConfig = field(default_factory=EnvConfig)
     job_id: int = 0
@@ -75,11 +65,6 @@ class PipelineParameters:
     use_chat_template: bool = False
     system_prompt: str | None = None
 
-    def __post_init__(self):  # noqa C901
-        if self.launcher_type == ParallelismManager.VLLM:
-            if not is_vllm_available():
-                raise ImportError(NO_VLLM_ERROR_MSG)
-
 class Pipeline:
     def __init__(
         self,
@@ -90,7 +75,6 @@ class Pipeline:
         max_req_num=None,
     ):
         self.pipeline_parameters = pipeline_parameters
-        self.launcher_type = self.pipeline_parameters.launcher_type
         if self.pipeline_parameters.max_samples:
             logger.warning(
                 "--max_samples WAS SET. THESE NUMBERS ARE ONLY PARTIAL AND SHOULD NOT BE USED FOR COMPARISON UNLESS YOU KNOW WHAT YOU ARE DOING."

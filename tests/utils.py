@@ -34,7 +34,7 @@ from lighteval.models.model_output import (
     LoglikelihoodResponse,
     LoglikelihoodSingleTokenResponse,
 )
-from lighteval.pipeline import ParallelismManager, Pipeline, PipelineParameters
+from lighteval.pipeline import Pipeline, PipelineParameters
 from lighteval.tasks.lighteval_task import LightevalTask
 from lighteval.tasks.registry import Registry
 from lighteval.tasks.requests import (
@@ -151,7 +151,7 @@ def fake_evaluate_task(
     with patch("lighteval.pipeline.Registry", FakeRegistry):
         pipeline = Pipeline(
             tasks=task_run_string,
-            pipeline_parameters=PipelineParameters(max_samples=max_samples, launcher_type=ParallelismManager.NONE),
+            pipeline_parameters=PipelineParameters(max_samples=max_samples),
             evaluation_tracker=evaluation_tracker,
             model=lm,
             model_config=None,

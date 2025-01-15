@@ -23,10 +23,10 @@ NO_TENSORBOARDX_WARN_MSG = (
 )
 
 def is_vllm_available() -> bool:
-    return importlib.util.find_spec("vllm") is not None and importlib.util.find_spec("ray") is not None
+    return importlib.util.find_spec("vllm") is not None
 
 
-NO_VLLM_ERROR_MSG = "You are trying to use an VLLM model, for which you need `vllm` and `ray`, which are not available in your environment. Please install them using pip, `pip install vllm ray`."
+NO_VLLM_ERROR_MSG = "You are trying to use an VLLM model, for which you need `vllm`, which is not available in your environment. Please install it using pip, `pip install vllm`."
 
 
 def can_load_extended_tasks() -> bool:

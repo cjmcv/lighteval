@@ -43,7 +43,7 @@ from lighteval.metrics import (
 )
 from lighteval.metrics.metrics import Metric, MetricCategory, Metrics
 # from lighteval.models.transformers.transformers_model import TransformersModel
-from lighteval.models.vllm.vllm_model import VLLMModel
+from lighteval.models.vllm_model import VLLMModel
 from lighteval.tasks.prompt_manager import PromptManager
 from lighteval.tasks.requests import (
     Doc,

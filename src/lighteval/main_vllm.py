@@ -100,8 +100,8 @@ def vllm(
     # import yaml
 
     from lighteval.logging.evaluation_tracker import EvaluationTracker
-    from lighteval.models.vllm.vllm_model import VLLMModelConfig
-    from lighteval.pipeline import EnvConfig, ParallelismManager, Pipeline, PipelineParameters
+    from lighteval.models.vllm_model import ModelConfig
+    from lighteval.pipeline import EnvConfig, Pipeline, PipelineParameters
 
     TOKEN = os.getenv("HF_TOKEN")
 
@@ -117,7 +117,6 @@ def vllm(
     )
 
     pipeline_params = PipelineParameters(
-        launcher_type=ParallelismManager.VLLM,
         env_config=env_config,
         job_id=job_id,
         dataset_loading_processes=dataset_loading_processes,
@@ -130,7 +129,7 @@ def vllm(
     )
 
     model_args_dict: dict = {k.split("=")[0]: k.split("=")[1] if "=" in k else True for k in model_args.split(",")}
-    model_config = VLLMModelConfig(**model_args_dict)
+    model_config = ModelConfig(**model_args_dict)
 
     pipeline = Pipeline(
         tasks=tasks,

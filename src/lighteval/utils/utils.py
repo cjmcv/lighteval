@@ -140,22 +140,6 @@ def as_list(item: ListLike[ElementType] | ElementType) -> list[ElementType]:
     return [item]
 
 
-def flatten(item: list[Union[list, str]]) -> list[str]:
-    """
-    Flattens a nested list of strings into a single flat list.
-
-    Args:
-        item (list[Union[list, str]]): The nested list to be flattened.
-
-    Returns:
-        list[str]: The flattened list of strings.
-    """
-    flat_item = []
-    for sub_item in item:
-        flat_item.extend(sub_item) if isinstance(sub_item, list) else flat_item.append(sub_item)
-    return flat_item
-
-
 def make_results_table(result_dict):
     """Generate table of results."""
     md_writer = MarkdownTableWriter()
@@ -194,25 +178,6 @@ class EnvConfig:
 
     cache_dir: str = os.getenv("HF_HUB_CACHE", "/scratch")
     token: str = os.getenv("HF_TOKEN")
-
-
-def boolstring_to_bool(x: Union[str, bool, int]) -> Union[bool, None]:
-    """Allows to manage string or bool to bool conversion, in case a configuration input is badly formatted.
-
-    Args:
-        x (str): A string (true, false, True, False, ...)
-
-    Returns:
-        Union[bool, None]: the corresponding boolean
-    """
-    if x in [None, "None", "null", ""]:
-        return None
-    if x in ["True", "true", True, 1]:
-        return True
-    if x in ["False", "false", False, 0]:
-        return False
-    raise ValueError(f"You tried to convert {x} to a boolean but it's not possible.")
-
 
 def download_dataset_worker(
     dataset_path: str,
