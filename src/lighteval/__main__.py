@@ -57,6 +57,7 @@ logging.config.dictConfig(logging_config)
 logging.captureWarnings(capture=True)
 
 app.command(rich_help_panel="Evaluation Backends")(lighteval.main_vllm.vllm)
+app.command(rich_help_panel="Evaluation Backends")(lighteval.main_vllm.vllm)
 app.add_typer(
     lighteval.main_tasks.app,
     name="tasks",

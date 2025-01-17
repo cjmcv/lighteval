@@ -31,8 +31,8 @@ from lighteval.metrics.sample_preparator import (
     LogprobCorpusMetricInput,
     PerplexityCorpusMetricInput,
 )
-from lighteval.models.model_output import ModelResponse
-from lighteval.tasks.lighteval_task import LightevalTask
+# from lighteval.models.model_output import ModelResponse
+from lighteval.tasks.lighteval_task import LightevalTask, ModelResponse
 from lighteval.tasks.requests import Doc
 from lighteval.utils.utils import as_list
 

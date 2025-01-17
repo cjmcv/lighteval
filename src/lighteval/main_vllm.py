@@ -26,9 +26,10 @@ from typer import Argument, Option
 from typing_extensions import Annotated
 
 # Default path: ~/.cache/huggingface/datasets
-os.environ["HF_DATASETS_CACHE"] = "/home/cjmcv/project/llm_datasets/huggingface" 
+os.environ["HF_DATASETS_CACHE"] = "/home/cjmcv/project/llm_datasets/huggingface"
 os.environ["HF_DATASETS_FORCE_USE_LOCAL_FILES"] = "True"
 os.environ["USING_API_SERVER"] = "False"
+os.environ["MAX_REQ_NUM"] = "50"
 
 TOKEN = os.getenv("HF_TOKEN")
 CACHE_DIR: str = os.getenv("HF_HOME", "/scratch")
@@ -100,7 +101,7 @@ def vllm(
     # import yaml
 
     from lighteval.logging.evaluation_tracker import EvaluationTracker
-    from lighteval.models.vllm_model import ModelConfig
+    from lighteval.lighteval_model import ModelConfig
     from lighteval.pipeline import EnvConfig, Pipeline, PipelineParameters
 
     TOKEN = os.getenv("HF_TOKEN")
@@ -136,7 +137,7 @@ def vllm(
         pipeline_parameters=pipeline_params,
         evaluation_tracker=evaluation_tracker,
         model_config=model_config,
-        max_req_num=200,
+        max_req_num=int(eval(os.environ.get('MAX_REQ_NUM'))),
     )
 
     pipeline.evaluate()

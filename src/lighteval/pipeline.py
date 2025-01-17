@@ -33,8 +33,8 @@ import numpy as np
 
 from lighteval.logging.evaluation_tracker import EvaluationTracker
 from lighteval.metrics.utils.metric_utils import MetricCategory
-from lighteval.models.vllm_model import VLLMModel #, ModelConfig
-from lighteval.models.model_output import ModelResponse
+from lighteval.lighteval_model import LightevalModel, ModelResponse #, ModelConfig
+# from lighteval.models.model_output import ModelResponse
 from lighteval.tasks.lighteval_task import LightevalTask, create_requests_from_tasks
 from lighteval.tasks.registry import Registry, taskinfo_selector
 from lighteval.tasks.requests import SampleUid
@@ -86,7 +86,7 @@ class Pipeline:
         logger.info("--- LOADING MODEL ---")
         if not is_vllm_available():
             raise ImportError(NO_VLLM_ERROR_MSG)
-        self.model = VLLMModel(config=model_config, env_config=self.pipeline_parameters.env_config)
+        self.model = LightevalModel(config=model_config, env_config=self.pipeline_parameters.env_config)
         self.evaluation_tracker.general_config_logger.log_model_info(self.model.model_info)
 
         # Get requests

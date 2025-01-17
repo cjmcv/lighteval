@@ -22,7 +22,8 @@
 
 
 from lighteval.metrics.metrics import Metric, MetricCategory
-from lighteval.models.model_output import ModelResponse
+from lighteval.lighteval_model import ModelResponse
+# from lighteval.models.model_output import ModelResponse
 from lighteval.tasks.requests import Doc
 from lighteval.utils.utils import as_list
 

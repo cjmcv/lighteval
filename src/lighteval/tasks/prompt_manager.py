@@ -28,7 +28,7 @@ from enum import Enum
 from itertools import cycle
 from typing import TYPE_CHECKING, Optional, Tuple, Union
 
-from lighteval.models.abstract_model import LightevalModel
+from lighteval.lighteval_model import LightevalModel
 # from lighteval.models.litellm_model import LiteLLMClient
 from lighteval.tasks.requests import Doc
 from lighteval.utils.utils import as_list

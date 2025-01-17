@@ -46,6 +46,10 @@ class DynamicBatchDataset(Dataset):
         num_dataset_splits: int,
     ):
         """
+        这个类采用动态批处理来加快生成速度。
+        每个请求会根据prompt长度与continuation长度之和进行排序。然后将数据集分割为 num_dataset_splits 个部分。
+        第一部分将包含长度最长的请求，第二部分将包含长度第二长的请求，依此类推。
+        这使得我们能够采用动态批处理，从较小的批量大小开始，对每个部分的批量大小翻倍。与对整个数据集使用固定批量大小相比，这种方式要快得多。
         This dataset class uses dynamic batching to speed up the generation.
         Each request is sorted by the length of the prompt + the length of the
         continuation. Then, the dataset is split into num_dataset_splits splits.

@@ -211,7 +211,9 @@ def download_dataset_worker(
             for item in arrow_list:
                 if s in item:
                     latest_version_test_dataset = os.path.join(latest_version_data_set, item, "")
-                    dataset.append(load_dataset('arrow', data_files=latest_version_test_dataset)['train'])
+                    # 单独加载arrow都只有一个'train', 无论其本身是test/validation/train。而从网上加载，则会用字段区分。
+                    # 所以从本地单独加载，需在这里先过滤split(即train/test/validation字段)选择对应arrow文件后加载，从网上加载则先加载整体到dataset后，再过滤split。
+                    dataset.append(load_dataset('arrow', data_files=latest_version_test_dataset)['train']) 
     else:
         dataset = load_dataset(
             path=dataset_path, # "/home/cjmcv/project/llm_datasets/huggingface/lighteval___mmlu/abstract_algebra/1.0.0/e24764f1fb58c26b5f622157644f2e5fe77e5b01", # dataset_path, # 'lighteval/mmlu' # https://huggingface.co/datasets/lighteval/mmlu
