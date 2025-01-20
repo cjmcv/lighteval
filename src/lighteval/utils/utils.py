@@ -68,28 +68,6 @@ def clean_s3_links(value: str) -> str:
     value = f'<a href="{link_str}" target="_blank"> {value} </a>'
     return value
 
-
-def obj_to_markdown(obj, convert_s3_links: bool = True) -> str:
-    """Convert a (potentially nested) dataclass object or a dict in a readable markdown string for logging"""
-    from pytablewriter import MarkdownTableWriter
-
-    if is_dataclass(obj):
-        obj = asdict(obj)
-    config_dict = flatten_dict(obj)
-
-    md_writer = MarkdownTableWriter()
-    md_writer.headers = ["Key", "Value"]
-
-    values = []
-    for key, value in config_dict.items():
-        if convert_s3_links and "s3://" in str(value):
-            value = clean_s3_links(value)
-        values.append([key, value])
-    md_writer.value_matrix = values
-
-    return md_writer.dumps()
-
-
 def sanitize_numpy(example_dict: dict) -> dict:
     """
     Sanitizes a dictionary by converting any numpy generic types to their corresponding Python types.

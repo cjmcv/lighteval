@@ -12,7 +12,7 @@ import nltk
 import numpy as np
 import torch
 import tqdm
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoTokenizer
 
 
 logger = logging.getLogger(__name__)
@@ -136,6 +136,7 @@ class SummaCImager:
 
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_card)
+            from transformers import AutoModelForSequenceClassification # 从开头挪到这里，这块需要加载tf，速度较慢，有需要时才加载
             self.model = AutoModelForSequenceClassification.from_pretrained(self.model_card).eval()
             self.model.to(self.device).half()
 

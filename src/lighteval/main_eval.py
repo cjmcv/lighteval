@@ -20,11 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import os
-from typing import Optional
-
-from typer import Argument, Option
-from typing_extensions import Annotated
-
+import sys
 from argparse import ArgumentParser
 
 TOKEN = os.getenv("HF_TOKEN")
@@ -99,25 +95,9 @@ if __name__ == "__main__":
         help="Output directory for evaluation results.",
     )
     parser.add_argument(
-        "--push-to-hub",
-        action="store_true",
-        help="Push results to the huggingface hub.",
-    )
-    parser.add_argument(
-        "--push-to-tensorboard",
-        action="store_true",
-        help="Push results to tensorboard.",
-    )
-    parser.add_argument(
         "--public-run",
         action="store_true",
         help="Push results and details to a public repo.",
-    )
-    parser.add_argument(
-        "--results-org",
-        type=str,
-        default=None,
-        help="Organization to push results to.",
     )
     parser.add_argument(
         "--save-details",
@@ -142,7 +122,11 @@ if __name__ == "__main__":
     """
     Evaluate models using vllm as backend.
     """
-    # import yaml
+
+    # Default path: ~/.cache/huggingface/datasets
+    os.environ["HF_DATASETS_CACHE"] = args.datasets_path + "/huggingface"
+    os.environ["HF_DATASETS_FORCE_USE_LOCAL_FILES"] = str(args.force_local_datasets)
+    os.environ["USING_API_SERVER"] = "False"
 
     from lighteval.logging.evaluation_tracker import EvaluationTracker
     from lighteval.lighteval_model import ModelConfig
@@ -150,20 +134,12 @@ if __name__ == "__main__":
 
     TOKEN = os.getenv("HF_TOKEN")
 
-    # Default path: ~/.cache/huggingface/datasets
-    os.environ["HF_DATASETS_CACHE"] = args.datasets_path + "/huggingface"
-    os.environ["HF_DATASETS_FORCE_USE_LOCAL_FILES"] = str(args.force_local_datasets)
-    os.environ["USING_API_SERVER"] = "False"
-
     env_config = EnvConfig(token=TOKEN, cache_dir=args.cache_dir)
 
     evaluation_tracker = EvaluationTracker(
         output_dir=args.output_dir,
         save_details=args.save_details,
-        push_to_hub=args.push_to_hub,
-        push_to_tensorboard=args.push_to_tensorboard,
         public=args.public_run,
-        hub_results_org=args.results_org,
     )
 
     pipeline_params = PipelineParameters(

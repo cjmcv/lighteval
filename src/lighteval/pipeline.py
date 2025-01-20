@@ -21,13 +21,10 @@
 # SOFTWARE.
 
 import collections
-import os
 import random
 import shutil
 from contextlib import nullcontext
 from dataclasses import dataclass, field
-from datetime import timedelta
-from enum import Enum, auto
 
 import numpy as np
 
@@ -38,10 +35,7 @@ from lighteval.lighteval_model import LightevalModel, ModelResponse #, ModelConf
 from lighteval.tasks.lighteval_task import LightevalTask, create_requests_from_tasks
 from lighteval.tasks.registry import Registry, taskinfo_selector
 from lighteval.tasks.requests import SampleUid
-from lighteval.utils.imports import (
-    NO_VLLM_ERROR_MSG,
-    is_vllm_available,
-)
+
 # from lighteval.utils.parallelism import test_all_gather
 from lighteval.utils.utils import EnvConfig, make_results_table
 
@@ -83,8 +77,6 @@ class Pipeline:
         # Model.
         self.model_config = model_config
         logger.info("--- LOADING MODEL ---")
-        if not is_vllm_available():
-            raise ImportError(NO_VLLM_ERROR_MSG)
         self.model = LightevalModel(config=model_config, env_config=self.pipeline_parameters.env_config)
         self.evaluation_tracker.general_config_logger.log_model_info(self.model.model_info)
 

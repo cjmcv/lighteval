@@ -30,7 +30,6 @@ import torch
 from tqdm import tqdm
 
 from lighteval.data import GenerativeTaskDataset, LoglikelihoodDataset
-# from lighteval.models.abstract_model import LightevalModel, ModelInfo
 
 from transformers import BatchEncoding, PreTrainedTokenizerBase
 
@@ -42,7 +41,11 @@ from lighteval.tasks.requests import (
     LoglikelihoodSingleTokenRequest,
     RequestType,
 )
-from lighteval.utils.imports import is_vllm_available
+from lighteval.utils.imports import (
+    NO_VLLM_ERROR_MSG,
+    is_vllm_available,
+)
+
 from lighteval.utils.utils import EnvConfig, as_list
 
 ###################
@@ -183,13 +186,14 @@ class GenerationParameters:
         return {k: v for k, v in asdict(self).items() if v is not None}
 
 
-if is_vllm_available():
+if is_vllm_available() and not eval(os.environ.get('USING_API_SERVER')):
     from vllm import LLM, SamplingParams
     from vllm.transformers_utils.tokenizer import get_tokenizer
     from vllm.distributed.parallel_state import destroy_distributed_environment, destroy_model_parallel
     logging.getLogger("vllm").propagate = True
     logging.getLogger("vllm").handlers.clear()
 else:
+    from transformers import AutoTokenizer
     LLM = None
     SamplingParams = None
     get_tokenizer = None
@@ -263,6 +267,8 @@ class LightevalModel():
             self.sampling_params = self.generation_parameters.to_vllm_openai_dict()
             self.model = None
         else:
+            if not is_vllm_available():
+                raise ImportError(NO_VLLM_ERROR_MSG)
             # If model_parallel is not set we compare the number of processes with the number of GPUs
             self.model = self._create_auto_model(config, env_config)
             self.sampling_params = SamplingParams(**self.generation_parameters.to_vllm_openai_dict())
@@ -359,12 +365,13 @@ class LightevalModel():
         return self.tokenizer.batch_decode(tokens, skip_special_tokens=True)
     
     def cleanup(self):
-        destroy_model_parallel()
         if self.model is not None:
+            destroy_model_parallel()
             del self.model.llm_engine.model_executor.driver_worker
+            destroy_distributed_environment()
+
         self.model = None
         gc.collect()
-        destroy_distributed_environment()
         torch.cuda.empty_cache()
 
     @property
@@ -417,12 +424,20 @@ class LightevalModel():
         return model
 
     def _create_auto_tokenizer(self, config: ModelConfig, env_config: EnvConfig):
-        tokenizer = get_tokenizer(
-            config.pretrained,
-            tokenizer_mode="auto",
-            trust_remote_code=config.trust_remote_code,
-            tokenizer_revision=config.revision,
-        )
+        if get_tokenizer is not None:
+            tokenizer = get_tokenizer(
+                config.pretrained,
+                tokenizer_mode="auto",
+                trust_remote_code=config.trust_remote_code,
+                tokenizer_revision=config.revision,
+            )
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(
+                config.pretrained,
+                tokenizer_mode="auto",
+                trust_remote_code=config.trust_remote_code,
+                tokenizer_revision=config.revision,
+            )
         tokenizer.pad_token = tokenizer.eos_token
         return tokenizer
     

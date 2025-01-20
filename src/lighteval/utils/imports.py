@@ -14,13 +14,6 @@
 
 import importlib
 
-def is_tensorboardX_available() -> bool:
-    return importlib.util.find_spec("tensorboardX") is not None
-
-
-NO_TENSORBOARDX_WARN_MSG = (
-    "You are trying to log using tensorboardX, which is not installed. Please install it using pip. Skipping."
-)
 
 def is_vllm_available() -> bool:
     return importlib.util.find_spec("vllm") is not None

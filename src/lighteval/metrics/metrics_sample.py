@@ -69,7 +69,7 @@ from nltk.metrics.distance import edit_distance
 from nltk.tokenize import word_tokenize
 from nltk.tokenize.treebank import TreebankWordTokenizer
 from nltk.translate.bleu_score import sentence_bleu
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from transformers import AutoTokenizer
 
 from lighteval.metrics.imports.bert_scorer import BERTScorer
 from lighteval.metrics.imports.data_stats_metric import DataStatsMetric
@@ -742,10 +742,8 @@ class BLEURT:
         """Creates a BLEURT scorer using a light bleurt-tiny-512 model.
         For more complex use cases, could also be Elron/bleurt-base-128
         """
-        self.tokenizer = AutoTokenizer.from_pretrained("Elron/bleurt-tiny-512")
-        self.model = AutoModelForSequenceClassification.from_pretrained("Elron/bleurt-tiny-512")
-        self.model.eval()
-
+        self.model = None
+        
     def compute(self, golds: list[str], predictions: list[str], **kwargs) -> float:
         """Uses the stored BLEURT scorer to compute the score on the current sample.
 
@@ -756,6 +754,13 @@ class BLEURT:
         Returns:
             float: Score over the current sample's items.
         """
+        # 将初始化从__init__改到这里，实际需要的时候才加载
+        if self.model is None:
+            self.tokenizer = AutoTokenizer.from_pretrained("Elron/bleurt-tiny-512")
+            from transformers import AutoModelForSequenceClassification # 从开头挪到这里，这块需要加载tf，速度较慢，有需要时才加载
+            self.model = AutoModelForSequenceClassification.from_pretrained("Elron/bleurt-tiny-512")
+            self.model.eval()
+
         if len(predictions) == 1:
             predictions = predictions * len(golds)
         scores = self.model(**self.tokenizer(golds, predictions, return_tensors="pt"))[0].squeeze()
