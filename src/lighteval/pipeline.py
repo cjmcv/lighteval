@@ -72,7 +72,6 @@ class Pipeline:
         pipeline_parameters: PipelineParameters,
         evaluation_tracker: EvaluationTracker,
         model_config=None,
-        max_req_num=None,
     ):
         self.pipeline_parameters = pipeline_parameters
         if self.pipeline_parameters.max_samples:
@@ -90,12 +89,12 @@ class Pipeline:
         self.evaluation_tracker.general_config_logger.log_model_info(self.model.model_info)
 
         # Get requests
-        self._init_tasks_and_requests(tasks=tasks, max_req_num=max_req_num)
+        self._init_tasks_and_requests(tasks=tasks)
         self._init_random_seeds()
         # Final results
         self.final_dict: dict = None
         
-    def _init_tasks_and_requests(self, tasks: str, max_req_num: int):
+    def _init_tasks_and_requests(self, tasks: str):
         with nullcontext():
             logger.info("--- LOADING TASKS ---")
             registry = Registry(
@@ -117,7 +116,6 @@ class Pipeline:
                 evaluation_tracker=self.evaluation_tracker,
                 use_chat_template=self.pipeline_parameters.use_chat_template,
                 system_prompt=self.pipeline_parameters.system_prompt,
-                max_req_num=max_req_num,
             )
             self.task_names_list = task_names_list
             self.task_dict = task_dict

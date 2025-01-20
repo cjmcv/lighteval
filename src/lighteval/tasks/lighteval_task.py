@@ -602,7 +602,6 @@ def create_requests_from_tasks(  # noqa: C901
     evaluation_tracker: "EvaluationTracker",
     use_chat_template: bool,
     system_prompt: str | None,
-    max_req_num: int | None,
 ) -> Tuple[dict[RequestType, list[Request]], dict[SampleUid, Doc]]:
     """
     Takes a task dict and a fewshot dict and returns a dict of requests, a dict
@@ -675,8 +674,5 @@ def create_requests_from_tasks(  # noqa: C901
                     req_type_reqs_dict = task.construct_requests(doc, doc.ctx, doc_id_seed, cur_task_name)
                     for req_type, reqs in req_type_reqs_dict.items():
                         requests[req_type].extend(reqs)
-                    
-                        if (max_req_num != None and len(requests[req_type]) >= max_req_num):
-                            return requests, docs 
 
     return requests, docs

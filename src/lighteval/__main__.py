@@ -26,7 +26,7 @@ import colorlog
 import typer
 
 import lighteval.main_tasks
-import lighteval.main_vllm
+import lighteval.main_eval
 
 
 app = typer.Typer()
@@ -56,8 +56,8 @@ logging_config = dict(  # noqa C408
 logging.config.dictConfig(logging_config)
 logging.captureWarnings(capture=True)
 
-app.command(rich_help_panel="Evaluation Backends")(lighteval.main_vllm.vllm)
-app.command(rich_help_panel="Evaluation Backends")(lighteval.main_vllm.vllm)
+# app.command(rich_help_panel="Evaluation Backends")(lighteval.main_eval.eval)
+# app.command(rich_help_panel="Evaluation Backends")(lighteval.main_benchmark.api_benchmark)
 app.add_typer(
     lighteval.main_tasks.app,
     name="tasks",

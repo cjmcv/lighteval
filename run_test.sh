@@ -1,37 +1,46 @@
 #!/usr/bin/env bash
 
-# sh run_test.sh sglang launch
+# sh run_test.sh launch sglang   启动服务
+# sh run_test.sh eval sglang     评估在特定数据集上的模型指标
+# sh run_test.sh bm sglang       评估在sharedgpt数据集上的耗时情况
+# sh run_test.sh task|list|nsys  task(特定数据集的具体情况) / list(列出所支持的所有数据集) / nsys(GPU运行情况分析)
+
 
 MODEL_PATH="/home/cjmcv/project/llm_models/Qwen/Qwen2___5-1___5B-Instruct-AWQ"
+DATASETS_PATH="/home/cjmcv/project/llm_datasets/"
+EVAL_TASK="helm|quac|0|0"
 NSYS_PROFILER=
 # NSYS_PROFILER="nsys profile --trace-fork-before-exec=true --cuda-graph-trace=node -o sglang.out --delay 60 --duration 70"
 
-echo "run example: sh run_test.sh {sglang/lmdeploy/vllm} {launch/bm/eval/list/task}"
+echo "run example: sh run_test.sh {launch/bm/eval/list/task} {sglang/lmdeploy/vllm} "
 
-if [ "$2" = "launch" ]; then
-    if [ "$1" = "sglang" ]; then
+if [ "$1" = "launch" ]; then
+    if [ "$2" = "sglang" ]; then
         # --grammar-backend xgrammar --disable-overlap-schedule --disable-radix-cache
         $NSYS_PROFILER python3 -m sglang.launch_server --model-path $MODEL_PATH --enable-torch-compile --enable-mixed-chunk 
-    elif [ "$1" = "vllm" ]; then
+    elif [ "$2" = "vllm" ]; then
         $NSYS_PROFILER python3 -m vllm.entrypoints.openai.api_server --model $MODEL_PATH --disable-log-requests --num-scheduler-steps 10 --max_model_len 4096
-    elif [ "$1" = "lmdeploy" ]; then
+    elif [ "$2" = "lmdeploy" ]; then
         $NSYS_PROFILER lmdeploy serve api_server $MODEL_PATH  --server-port 23333 --model-name test_model
     else
         echo "abc"
     fi
-elif [ "$2" = "bm" ]; then
-    DATASET_PATH=/home/cjmcv/project/llm_datasets/ShareGPT_V3_unfiltered_cleaned_split.json
+elif [ "$1" = "bm" ]; then
+    DATASETS_PATH="$DATASETS_PATH/ShareGPT_V3_unfiltered_cleaned_split.json"
     DATASET="sharegpt"
     NUM_PROMPTS=10
     REQUEST_RATE=4
-    python3 -m lighteval.benchmark --backend $1 --dataset-name $DATASET --dataset-path $DATASET_PATH --num-prompts $NUM_PROMPTS --request-rate $REQUEST_RATE
-elif [ "$2" = "eval" ]; then
-    python3 src/lighteval/__main__.py vllm "pretrained=$MODEL_PATH,dtype=float16" "helm|quac|0|0"
-elif [ "$2" = "list" ]; then
+    python3 -m lighteval.main_benchmark --backend $2 --dataset-name $DATASET --dataset-path $DATASETS_PATH --num-prompts $NUM_PROMPTS --request-rate $REQUEST_RATE
+elif [ "$1" = "eval" ]; then
+    # python3 src/lighteval/__main__.py vllm "pretrained=$MODEL_PATH,dtype=float16" "helm|quac|0|0"
+    # model_args: ModelConfig
+    python3 -m lighteval.main_eval --model_args "backend=$2,pretrained=$MODEL_PATH,dtype=float16" --tasks $EVAL_TASK --max_samples 15 \
+                                   --datasets-path $DATASETS_PATH --force-local-datasets
+elif [ "$1" = "list" ]; then
     python3 src/lighteval/__main__.py tasks list
-elif [ "$2" = "task" ]; then
-    python3 src/lighteval/__main__.py tasks inspect "helm|quac|0|0"
-elif [ "$2" = "nsys" ]; then
+elif [ "$1" = "task" ]; then
+    python3 src/lighteval/__main__.py tasks inspect $EVAL_TASK
+elif [ "$1" = "nsys" ]; then
     nsys-ui profile sglang.out.nsys-rep
 fi
 

@@ -209,6 +209,7 @@ class ModelInfo:
 
 @dataclass
 class ModelConfig:
+    backend: str
     pretrained: str
     gpu_memory_utilisation: float = 0.9  # lower this if you are running out of memory
     revision: str = "main"  # revision of the model
@@ -245,19 +246,20 @@ class LightevalModel():
 
         is_api_server = eval(os.environ.get('USING_API_SERVER'))
         if is_api_server:
-            backend = "sglang"
             port = {
                 "sglang": 30000,
                 "lmdeploy": 23333,
                 "vllm": 8000,
-            }.get(backend, 30000)
+            }.get(config.backend, 30000)
 
             self.API_MAX_RETRY = 5
             self.API_RETRY_SLEEP = 3
             self.API_RETRY_MULTIPLIER = 2
             self.CONCURENT_CALLS = 4
 
-            self.client = openai.Client(base_url=f"http://127.0.0.1:{port}/v1", api_key="EMPTY")
+            base_url=f"http://127.0.0.1:{port}/v1"
+            print("Connect to ", base_url)
+            self.client = openai.Client(base_url=base_url, api_key="EMPTY")
             self.sampling_params = self.generation_parameters.to_vllm_openai_dict()
             self.model = None
         else:
