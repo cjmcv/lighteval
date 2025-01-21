@@ -45,7 +45,7 @@ from lighteval.metrics.sample_preparator import (
     LogprobCorpusMetricInput,
     PerplexityCorpusMetricInput,
 )
-from lighteval.utils.utils import as_list
+from lighteval.utils import as_list
 
 
 logger = logging.getLogger(__name__)

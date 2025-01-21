@@ -33,9 +33,7 @@ from typing import Callable, Dict, List, Optional, Union
 from datasets.load import dataset_module_factory
 
 import lighteval.tasks.default_tasks as default_tasks
-# from lighteval.tasks.extended import AVAILABLE_EXTENDED_TASKS_MODULES
 from lighteval.tasks.lighteval_task import LightevalTask, LightevalTaskConfig
-# from lighteval.utils.imports import CANNOT_USE_EXTENDED_TASKS_MSG, can_load_extended_tasks
 
 
 logger = logging.getLogger(__name__)
@@ -43,9 +41,6 @@ logger = logging.getLogger(__name__)
 # Helm, Bigbench, Harness are implementations following an evaluation suite setup
 # Original follows the original implementation as closely as possible
 # Leaderboard are the evaluations we fixed on the open llm leaderboard - you should get similar results
-# Community are for community added evaluations
-# Extended are for evaluations with custom logic
-# Custom is for all the experiments you might want to do!
 DEFAULT_SUITES = [
     "helm",
     "bigbench",
@@ -53,43 +48,27 @@ DEFAULT_SUITES = [
     "leaderboard",
     "lighteval",
     "original",
-    "extended",
-    "custom",
-    "community",
 ]
 
 TRUNCATE_FEW_SHOTS_DEFAULTS = True
 
-
 LazyLightevalTask = Callable[[], LightevalTask]
-
 
 class Registry:
     """
     The Registry class is used to manage the task registry and get task classes.
     """
 
-    def __init__(self, cache_dir: Optional[str] = None, custom_tasks: Optional[Union[str, Path, ModuleType]] = None):
+    def __init__(self, cache_dir: Optional[str] = None):
         """
         Initialize the Registry class.
 
         Args:
             cache_dir (Optional[str]): Directory path for caching. Defaults to None.
-            custom_tasks (Optional[Union[str, Path, ModuleType]]): Custom tasks to be included in registry. Can be a string path, Path object, or a module.
-                Each custom task should be a module with a TASKS_TABLE exposing a list of LightevalTaskConfig.
-                E.g:
-                TASKS_TABLE = [
-                    LightevalTaskConfig(
-                        name="custom_task",
-                        suite="custom",
-                        ...
-                    )
-                ]
         """
 
         # Private attributes, not expected to be mutated after initialization
         self._cache_dir = cache_dir
-        self._custom_tasks = custom_tasks
 
     def get_task_instance(self, task_name: str):
         """
@@ -101,12 +80,12 @@ class Registry:
             LightevalTask: Task class.
 
         Raises:
-            ValueError: If the task is not found in the task registry or custom task registry.
+            ValueError: If the task is not found in the task registry.
         """
         task_class = self.task_registry.get(task_name)
         if task_class is None:
             logger.error(f"{task_name} not found in provided tasks")
-            raise ValueError(f"Cannot find tasks {task_name} in task list or in custom task registry)")
+            raise ValueError(f"Cannot find tasks {task_name} in task list)")
 
         return task_class()
 
@@ -125,31 +104,7 @@ class Registry:
 
         # Import custom tasks provided by the user
         custom_tasks_registry = {}
-        # custom_tasks_module = []
-        # TASKS_TABLE = []
-        # if self._custom_tasks is not None:
-        #     custom_tasks_module.append(create_custom_tasks_module(custom_tasks=self._custom_tasks))
-        # if can_load_extended_tasks():
-        #     for extended_task_module in AVAILABLE_EXTENDED_TASKS_MODULES:
-        #         custom_tasks_module.append(extended_task_module)
-        # else:
-        #     logger.warning(CANNOT_USE_EXTENDED_TASKS_MSG)
-
-        # for module in custom_tasks_module:
-        #     TASKS_TABLE.extend(module.TASKS_TABLE)
-        #     # We don't log the tasks themselves as it makes the logs unreadable
-        #     logger.info(f"Found {len(module.TASKS_TABLE)} custom tasks in {module.__file__}")
-
-        # if len(TASKS_TABLE) > 0:
-        #     custom_tasks_registry = create_lazy_tasks(meta_table=TASKS_TABLE, cache_dir=self._cache_dir)
-
         default_tasks_registry = create_lazy_tasks(cache_dir=self._cache_dir)
-        # Check the overlap between default_tasks_registry and custom_tasks_registry
-        intersection = set(default_tasks_registry.keys()).intersection(set(custom_tasks_registry.keys()))
-        if len(intersection) > 0:
-            logger.warning(
-                f"Following tasks ({intersection}) exists both in the default and custom tasks. Will use the custom ones on conflict."
-            )
 
         # Custom tasks overwrite defaults tasks
         return {**default_tasks_registry, **custom_tasks_registry}
@@ -175,25 +130,7 @@ class Registry:
     @property
     @lru_cache
     def task_groups_dict(self) -> dict[str, list[str]]:
-        """
-        Returns:
-            dict[str, list[str]]: A dictionary where keys are task group names and values are lists of task names (suite|task).
-
-        Example:
-            {
-                "all_custom": ["custom|task1", "custom|task2", "custom|task3"],
-                "group1": ["custom|task1", "custom|task2"],
-            }
-        """
-        if self._custom_tasks is None:
-            return {}
-        custom_tasks_module = create_custom_tasks_module(custom_tasks=self._custom_tasks)
-        tasks_group_dict = {}
-        if hasattr(custom_tasks_module, "TASKS_GROUPS"):
-            tasks_group_dict = custom_tasks_module.TASKS_GROUPS
-
-        # We should allow defining task groups as comma-separated strings or lists of tasks
-        return {k: v if isinstance(v, list) else v.split(",") for k, v in tasks_group_dict.items()}
+        return {}
 
     def get_task_dict(self, task_names: list[str]) -> dict[str, LightevalTask]:
         """
@@ -241,26 +178,6 @@ class Registry:
             print(f"\n- {suite}:")
             for task_name in tasks_names:
                 print(f"  - {task_name}")
-
-
-def create_custom_tasks_module(custom_tasks: Union[str, Path, ModuleType]) -> ModuleType:
-    """Creates a custom task module to load tasks defined by the user in their own file.
-
-    Args:
-        custom_tasks (Optional[Union[str, ModuleType]]): Path to the custom tasks file or name of a module to import containing custom tasks or the module itself
-
-    Returns:
-        ModuleType: The newly imported/created custom tasks modules
-    """
-    if isinstance(custom_tasks, ModuleType):
-        return custom_tasks
-    if isinstance(custom_tasks, (str, Path)) and os.path.exists(custom_tasks):
-        dataset_module = dataset_module_factory(str(custom_tasks), trust_remote_code=True)
-        return importlib.import_module(dataset_module.module_path)
-    if isinstance(custom_tasks, (str, Path)):
-        return importlib.import_module(str(custom_tasks))
-    raise ValueError(f"Cannot import custom tasks from {custom_tasks}")
-
 
 def taskinfo_selector(tasks: str, task_registry: Registry) -> tuple[list[str], dict[str, list[tuple[int, bool]]]]:
     """

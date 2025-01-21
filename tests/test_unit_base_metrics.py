@@ -33,7 +33,7 @@ from lighteval.metrics.dynamic_metrics import (
 from lighteval.metrics.metrics_sample import ExactMatches
 from lighteval.metrics.normalizations import LogProbCharNorm, helm_normalizer
 from lighteval.tasks.requests import Doc
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 class TestBaseMetrics:

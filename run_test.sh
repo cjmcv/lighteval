@@ -8,7 +8,7 @@
 
 MODEL_PATH="/home/cjmcv/project/llm_models/Qwen/Qwen2___5-1___5B-Instruct-AWQ"
 DATASETS_PATH="/home/cjmcv/project/llm_datasets/"
-EVAL_TASK="helm|bbq:Age|0|0" # "helm|synthetic_reasoning:natural_hard|0|0" # "helm|quac|0|0"
+EVAL_TASK="examples/tasks/my_set.txt" # "helm|bbq:Age|0|0" # "helm|synthetic_reasoning:natural_hard|0|0" # "helm|quac|0|0"
 EVAL_MAX_SAMPLES="120"
 NSYS_PROFILER=
 # NSYS_PROFILER="nsys profile --trace-fork-before-exec=true --cuda-graph-trace=node -o sglang.out --delay 60 --duration 70"

@@ -31,7 +31,7 @@ import numpy as np
 import pycountry
 
 from lighteval.tasks.requests import Doc
-from lighteval.utils.utils import as_list
+from lighteval.utils import as_list
 
 
 logger = logging.getLogger(__name__)

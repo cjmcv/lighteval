@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Optional, Tuple, Union
 from lighteval.lighteval_model import LightevalModel
 # from lighteval.models.litellm_model import LiteLLMClient
 from lighteval.tasks.requests import Doc
-from lighteval.utils.utils import as_list
+from lighteval.utils import as_list
 
 
 logger = logging.getLogger(__name__)

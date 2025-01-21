@@ -22,13 +22,9 @@
 
 
 import logging
-import time
-from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Literal
 
-from tqdm import tqdm
-
-from lighteval.utils.imports import is_vllm_available
+from lighteval.utils import is_vllm_available
 
 
 logging.getLogger("openai").setLevel(logging.ERROR)

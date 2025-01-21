@@ -26,7 +26,7 @@ from typing_extensions import NotRequired, TypedDict
 
 from lighteval.tasks.templates.multichoice import MCQInput, create_adapter_from_dict, get_mcq_prompt_function
 from lighteval.tasks.templates.utils.formulation import CFFormulation
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 class QAInput(TypedDict):

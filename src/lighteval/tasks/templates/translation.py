@@ -30,8 +30,8 @@ from lighteval.tasks.templates.multichoice import create_adapter_from_dict
 from lighteval.tasks.templates.utils.formatting_utils import capitalize, fix_ending_punct
 from lighteval.tasks.templates.utils.formulation import Formulation, MCFFormulation
 from lighteval.tasks.templates.utils.translation_literals import TRANSLATION_LITERALS
-from lighteval.utils.language import Language
-from lighteval.utils.utils import as_list
+from lighteval.utils import Language
+from lighteval.utils import as_list
 
 
 # Template chosen so that it's not very language-dependent, as it's not clear whether one should use the target or source language.

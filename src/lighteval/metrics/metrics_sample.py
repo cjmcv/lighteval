@@ -83,7 +83,7 @@ from lighteval.metrics.normalizations import (
     remove_braces_and_strip,
 )
 from lighteval.tasks.requests import Doc
-from lighteval.utils.utils import as_list, safe_divide
+from lighteval.utils import as_list
 
 
 logger = logging.getLogger(__name__)
@@ -349,7 +349,11 @@ class NormalizedMultiChoiceProbability:
         )
         normalized_probs = np.exp(normalized_log_probs)
 
-        normalized_probs = safe_divide(normalized_probs[gold_ixs], np.sum(normalized_probs))
+        # normalized_probs = safe_divide(normalized_probs[gold_ixs], np.sum(normalized_probs))
+        numerator = normalized_probs[gold_ixs]
+        denominator = np.sum(normalized_probs)
+        normalized_probs = np.where(denominator != 0, numerator / denominator, 0.0)
+
         gold_idx_agg_prob = self.aggregation_function(normalized_probs)
         return gold_idx_agg_prob
 

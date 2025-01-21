@@ -25,10 +25,10 @@ import string
 import sys
 import unicodedata
 from dataclasses import dataclass
-from typing import Callable
+# from typing import Callable
 
-from lighteval.metrics.utils.linguistic_tokenizers import get_word_tokenizer
-from lighteval.utils.language import Language
+# from lighteval.metrics.utils.linguistic_tokenizers import get_word_tokenizer
+from lighteval.utils import Language
 
 
 # From HELM
@@ -399,22 +399,6 @@ def remove_articles(text: str, lang: Language) -> str:
 
 def remove_punc(text: str) -> str:
     return "".join(ch for ch in text if ch not in PUNCT)
-
-
-def get_multilingual_normalizer(lang: Language, lower: bool = True) -> Callable[[str], str]:
-    tokenizer = get_word_tokenizer(lang)
-
-    def _inner_normalizer(text: str) -> str:
-        text = remove_articles(text, lang)
-        text = remove_punc(text)
-        if lower:
-            text = text.lower()
-
-        tokens = tokenizer.word_tokenize(text)
-        return " ".join(tokens)
-
-    return _inner_normalizer
-
 
 # Loglikelihood normalization
 @dataclass

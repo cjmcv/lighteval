@@ -35,7 +35,7 @@ from lighteval.tasks.templates.utils.formatting_utils import (
 )
 from lighteval.tasks.templates.utils.formulation import Formulation, MCFFormulation
 from lighteval.tasks.templates.utils.translation_literals import TRANSLATION_LITERALS
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 # NLI Cause/Effect (Copa)

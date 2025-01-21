@@ -22,7 +22,7 @@
 
 from lighteval.tasks.templates.multichoice import get_mcq_prompt_function
 from lighteval.tasks.templates.utils.formulation import CFFormulation, MCFFormulation
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 def test_multichoice_prompt_mcf():

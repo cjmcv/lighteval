@@ -23,7 +23,7 @@
 
 from lighteval.tasks.templates.hellaswag import get_hellaswag_prompt_function
 from lighteval.tasks.templates.utils.formulation import CFFormulation, MCFFormulation
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 def test_hellaswag_prompt_cf():

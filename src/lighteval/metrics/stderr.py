@@ -100,20 +100,3 @@ def get_stderr_function(aggregation: Callable, number_experiments: int = 1000):
         )
     except Exception:
         return None
-
-
-def bootstrap_stderr_scipy(metric: Callable, population: list, number_experiments: int = 1000):
-    """Simulates resampling (draw with replacement, of the same size as the orig set) n times from the results population
-    to compute the distance between the simulated resampling distribution and the actual distribution.
-    Same as bootstrap_stderr, but uses scipy.
-    It's kept for archive, as it overflows for big datasets
-    """
-    logger.info(f"Bootstrapping {metric.__name__}'s stderr.")
-    res = bootstrap(
-        data=[population],
-        statistic=metric,
-        n_resamples=number_experiments,
-        confidence_level=0.95,
-        method="BCa",
-    )
-    return res.standard_error

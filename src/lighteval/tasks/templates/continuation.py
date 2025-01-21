@@ -40,8 +40,8 @@ from lighteval.tasks.templates.utils.formulation import (
     build_choices,
 )
 from lighteval.tasks.templates.utils.translation_literals import TRANSLATION_LITERALS
-from lighteval.utils.language import Language
-from lighteval.utils.utils import as_list
+from lighteval.utils import Language
+from lighteval.utils import as_list
 
 
 CONTINUATION_QUERY_CF = "{instruction}{context}"

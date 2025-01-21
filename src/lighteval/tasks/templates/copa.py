@@ -29,7 +29,7 @@ from lighteval.tasks.templates.multichoice import create_adapter_from_dict
 from lighteval.tasks.templates.utils.formatting_utils import PUNCT, capitalize
 from lighteval.tasks.templates.utils.formulation import Formulation, MCFFormulation
 from lighteval.tasks.templates.utils.translation_literals import TRANSLATION_LITERALS
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 # NLI Cause/Effect (Copa)

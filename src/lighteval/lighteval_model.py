@@ -41,12 +41,12 @@ from lighteval.tasks.requests import (
     LoglikelihoodSingleTokenRequest,
     RequestType,
 )
-from lighteval.utils.imports import (
+from lighteval.utils import (
     NO_VLLM_ERROR_MSG,
     is_vllm_available,
 )
 
-from lighteval.utils.utils import EnvConfig, as_list
+from lighteval.utils import EnvConfig, as_list
 
 ###################
 import time

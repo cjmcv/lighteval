@@ -22,7 +22,7 @@
 
 from lighteval.tasks.templates.nli import get_nli_prompt_function
 from lighteval.tasks.templates.utils.formulation import CFFormulation, HybridFormulation
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 def test_nli_prompt_mcf():

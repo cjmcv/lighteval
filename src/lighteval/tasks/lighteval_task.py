@@ -28,7 +28,7 @@ import random
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
-from datasets import DatasetDict
+from datasets import DatasetDict, load_dataset
 from huggingface_hub import TextGenerationInputGrammarType
 from multiprocess import Pool
 from pytablewriter import MarkdownTableWriter
@@ -56,7 +56,7 @@ from lighteval.tasks.requests import (
     RequestType,
     SampleUid,
 )
-from lighteval.utils.utils import ListLike, as_list, download_dataset_worker
+from lighteval.utils import ListLike, as_list
 
 
 if TYPE_CHECKING:
@@ -64,6 +64,67 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def download_dataset_worker(
+    dataset_path: str,
+    dataset_config_name: str,
+    trust_dataset: bool,
+    dataset_filter: Callable[[dict], bool] | None = None,
+    revision: str | None = None,
+    splits: list[str] = [],
+) -> Tuple[DatasetDict, bool]:
+    """
+    Worker function to download a dataset from the HuggingFace Hub.
+    Used for parallel dataset loading.
+    """
+    # 先尝试读取本地数据
+    is_local_dataset = True
+    if is_local_dataset:
+        dataset_cache_dir = os.environ.get('HF_DATASETS_CACHE')+'/'+ dataset_path.replace("/", "___") + "/" + dataset_config_name
+        if os.path.exists(dataset_cache_dir):
+            # Skip the next level of the path
+            contents = os.listdir(dataset_cache_dir)
+            sub_folder = contents[0]
+            dataset_cache_dir = os.path.join(dataset_cache_dir, sub_folder, "")
+            # Get the lastest version 
+            versions = [os.path.join(dataset_cache_dir, d) for d in os.listdir(dataset_cache_dir) if os.path.isdir(os.path.join(dataset_cache_dir, d))]
+            latest_version_data_set = max(versions, key=os.path.getmtime) if versions else None
+            # Get all target arrows with splits.
+            arrow_list = os.listdir(latest_version_data_set)
+            # datasets = DatasetDict
+            dataset = []
+            for s in splits:
+                for item in arrow_list:
+                    if s in item:
+                        latest_version_test_dataset = os.path.join(latest_version_data_set, item, "")
+                        # 单独加载arrow都只有一个'train', 无论其本身是test/validation/train。而从网上加载，则会用字段区分。
+                        # 所以从本地单独加载，需在这里先过滤split(即train/test/validation字段)选择对应arrow文件后加载，从网上加载则先加载整体到dataset后，再过滤split。
+                        dataset.append(load_dataset('arrow', data_files=latest_version_test_dataset)['train'])
+
+            print("len(dataset)", len(dataset))
+            if len(dataset) == 0:
+                is_local_dataset = False
+                raise Warning(f" Unable to load data from the local location. Try to obtain it from the network..")
+        else:
+            is_local_dataset = False
+            print(f"dataset_cache_dir {dataset_cache_dir} is not exist. Try to obtain it from the network..")
+
+    if not is_local_dataset:
+        dataset = load_dataset(
+            path=dataset_path, # "/home/cjmcv/project/llm_datasets/huggingface/lighteval___mmlu/abstract_algebra/1.0.0/e24764f1fb58c26b5f622157644f2e5fe77e5b01", # dataset_path, # 'lighteval/mmlu' # https://huggingface.co/datasets/lighteval/mmlu
+            name=dataset_config_name, #dataset_config_name, # 'abstract_algebra'
+            data_dir=None, # "/home/cjmcv/project/llm_datasets/huggingface/lighteval___mmlu/abstract_algebra/1.0.0/1789618b211cec2e9545c1a41c62b7c6b2b2ccc0dbb64b7e3c89867b0a538891",
+            cache_dir=None, # os.environ.get('HF_DATASETS_CACHE'),   # os.environ.get('HF_DATASETS_CACHE')
+            download_mode=None,
+            trust_remote_code=trust_dataset,
+            revision=revision,
+        )
+
+    if dataset_filter is not None:
+        dataset = dataset.filter(dataset_filter)  # 如果是加载离线数据，则这里不能调用
+
+    # It returns DatasetDict because we don't specify a split
+    return dataset, is_local_dataset  # type: ignore
 
 @dataclass
 class LightevalTaskConfig:

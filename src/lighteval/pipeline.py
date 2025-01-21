@@ -25,11 +25,12 @@ import random
 import shutil
 from contextlib import nullcontext
 from dataclasses import dataclass, field
+from pytablewriter import MarkdownTableWriter
 
 import numpy as np
 
 from lighteval.logging.evaluation_tracker import EvaluationTracker
-from lighteval.metrics.utils.metric_utils import MetricCategory
+from lighteval.metrics.metric_utils import MetricCategory
 from lighteval.lighteval_model import LightevalModel, ModelResponse #, ModelConfig
 # from lighteval.models.model_output import ModelResponse
 from lighteval.tasks.lighteval_task import LightevalTask, create_requests_from_tasks
@@ -37,7 +38,7 @@ from lighteval.tasks.registry import Registry, taskinfo_selector
 from lighteval.tasks.requests import SampleUid
 
 # from lighteval.utils.parallelism import test_all_gather
-from lighteval.utils.utils import EnvConfig, make_results_table
+from lighteval.utils import EnvConfig # , make_results_table
 
 import logging
 
@@ -49,8 +50,6 @@ class PipelineParameters:
     env_config: EnvConfig = field(default_factory=EnvConfig)
     job_id: int = 0
     dataset_loading_processes: int = 1
-    # Dataset
-    custom_tasks_directory: str | None = None
     # Generation parameters
     override_batch_size: int | None = None
     num_fewshot_seeds: int = 1
@@ -88,10 +87,7 @@ class Pipeline:
     def _init_tasks_and_requests(self, tasks: str):
         with nullcontext():
             logger.info("--- LOADING TASKS ---")
-            registry = Registry(
-                cache_dir=self.pipeline_parameters.env_config.cache_dir,
-                custom_tasks=self.pipeline_parameters.custom_tasks_directory,
-            )
+            registry = Registry(cache_dir=self.pipeline_parameters.env_config.cache_dir)
             task_names_list, fewshots_dict = taskinfo_selector(tasks, registry)
             task_dict = registry.get_task_dict(task_names_list)
             # LightevalTask.load_datasets(list(task_dict.values()), self.pipeline_parameters.dataset_loading_processes)
@@ -221,7 +217,30 @@ class Pipeline:
     def show_results(self):
         logger.info("--- DISPLAYING RESULTS ---")
         self._init_final_dict()
-        print(make_results_table(self.final_dict))
+
+        """Generate table of results."""
+        md_writer = MarkdownTableWriter()
+        md_writer.headers = ["Task", "Version", "Metric", "Value", "", "Stderr"]
+
+        values = []
+
+        print(self.final_dict)
+        for k in sorted(self.final_dict["results"].keys()):
+            dic = self.final_dict["results"][k]
+            version = self.final_dict["versions"][k] if k in self.final_dict["versions"] else ""
+            for m, v in dic.items():
+                if m.endswith("_stderr"):
+                    continue
+
+                if m + "_stderr" in dic:
+                    se = dic[m + "_stderr"]
+                    values.append([k, version, m, "%.4f" % v, "±", "%.4f" % se])
+                else:
+                    values.append([k, version, m, "%.4f" % v, "", ""])
+                k = ""
+                version = ""
+        md_writer.value_matrix = values
+        print(md_writer.dumps())
 
     def get_results(self):
         self._init_final_dict()

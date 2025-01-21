@@ -24,7 +24,7 @@ import pytest
 
 from lighteval.tasks.templates.copa import get_copa_prompt_function
 from lighteval.tasks.templates.utils.formulation import CFFormulation
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 @pytest.mark.parametrize("cause_effect", ["cause", "effect"])

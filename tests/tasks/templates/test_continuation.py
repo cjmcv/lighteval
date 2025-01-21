@@ -22,7 +22,7 @@
 
 from lighteval.tasks.templates.continuation import get_continuation_prompt_function
 from lighteval.tasks.templates.utils.formulation import CFFormulation, MCFFormulation
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 def test_continuation_prompt_mcf():

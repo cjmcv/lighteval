@@ -30,7 +30,7 @@ from lighteval.tasks.templates.utils.adapter_utils import create_adapter_from_di
 from lighteval.tasks.templates.utils.formatting_utils import PUNCT, capitalize, decapitalize, fix_ending_punct
 from lighteval.tasks.templates.utils.formulation import CFFormulation, Formulation, HybridFormulation, MCFFormulation
 from lighteval.tasks.templates.utils.translation_literals import TRANSLATION_LITERALS, TranslationLiterals
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 NLI_TEMPLATE_QUERY_CF = "{instruction}{premise}{word_space}{confirmation_word}{question_mark}"

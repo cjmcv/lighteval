@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import os
-import sys
 from argparse import ArgumentParser
 
 TOKEN = os.getenv("HF_TOKEN")
@@ -79,7 +78,6 @@ def eval(args):
         env_config=env_config,
         job_id=args.job_id,
         dataset_loading_processes=args.dataset_loading_processes,
-        custom_tasks_directory=args.custom_tasks,
         override_batch_size=-1,  # Cannot override batch size when using VLLM
         num_fewshot_seeds=args.num_fewshot_seeds,
         max_samples=args.max_samples,
@@ -137,9 +135,6 @@ if __name__ == "__main__":
         type=int,
         default=1,
         help="Number of processes to use for dataset loading.",
-    )
-    parser.add_argument(
-        "--custom-tasks", type=str, default=None, help="Path to custom tasks directory."
     )
     parser.add_argument(
         "--cache-dir",
@@ -205,3 +200,4 @@ if __name__ == "__main__":
         print("tasks_inspect done.")
     else:
         eval(args)
+        print("tasks_eval done.")

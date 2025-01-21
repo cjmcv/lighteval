@@ -23,7 +23,7 @@
 
 from lighteval.tasks.templates.translation import get_translation_prompt_function
 from lighteval.tasks.templates.utils.formulation import CFFormulation, MCFFormulation
-from lighteval.utils.language import Language
+from lighteval.utils import Language
 
 
 def test_translation_prompt_cf():

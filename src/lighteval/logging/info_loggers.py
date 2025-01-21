@@ -36,11 +36,29 @@ from lighteval.metrics.stderr import get_stderr_function
 from lighteval.lighteval_model import ModelInfo, ModelResponse
 from lighteval.tasks.lighteval_task import LightevalTask, LightevalTaskConfig
 from lighteval.tasks.requests import Doc
-from lighteval.utils.utils import as_list, sanitize_numpy
+from lighteval.utils import as_list
 
 
 logger = logging.getLogger(__name__)
 
+
+def sanitize_numpy(example_dict: dict) -> dict:
+    """
+    Sanitizes a dictionary by converting any numpy generic types to their corresponding Python types.
+
+    Args:
+        example_dict (dict): The dictionary to be sanitized.
+
+    Returns:
+        dict: The sanitized dictionary with numpy generic types converted to Python types.
+    """
+    output_dict = {}
+    for k, v in example_dict.items():
+        if isinstance(v, np.generic):
+            output_dict[k] = v.item()
+        else:
+            output_dict[k] = v
+    return output_dict
 
 @dataclass(init=False)
 class GeneralConfigLogger:
