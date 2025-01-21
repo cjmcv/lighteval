@@ -85,7 +85,6 @@ class EvaluationTracker:
     Args:
         output_dir (`str`): Local folder path where you want results to be saved.
         save_details (`bool`, defaults to True): If True, details are saved to the `output_dir`.
-        public (`bool`, defaults to False): If True, results and details are pushed to public orgs.
 
     **Attributes**:
         - **details_logger** ([`~logging.info_loggers.DetailsLogger`]) -- Logger for experiment details.
@@ -99,7 +98,6 @@ class EvaluationTracker:
         self,
         output_dir: str,
         save_details: bool = True,
-        public: bool = False,
     ) -> None:
         """Creates all the necessary loggers for evaluation tracking."""
         self.details_logger = DetailsLogger()
@@ -110,7 +108,6 @@ class EvaluationTracker:
 
         self.fs, self.output_dir = url_to_fs(output_dir)
         self.should_save_details = save_details
-        self.public = public
 
     def save(self) -> None:
         """Saves the experiment information and results to files, and to the hub if requested."""

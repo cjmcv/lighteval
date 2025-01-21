@@ -49,7 +49,6 @@ class PipelineParameters:
     env_config: EnvConfig = field(default_factory=EnvConfig)
     job_id: int = 0
     dataset_loading_processes: int = 1
-    nanotron_checkpoint_path: str | None = None  # only for nanotron models
     # Dataset
     custom_tasks_directory: str | None = None
     # Generation parameters

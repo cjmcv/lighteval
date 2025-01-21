@@ -95,11 +95,6 @@ if __name__ == "__main__":
         help="Output directory for evaluation results.",
     )
     parser.add_argument(
-        "--public-run",
-        action="store_true",
-        help="Push results and details to a public repo.",
-    )
-    parser.add_argument(
         "--save-details",
         action="store_true",
         help="Save detailed, sample per sample, results.",
@@ -126,7 +121,7 @@ if __name__ == "__main__":
     # Default path: ~/.cache/huggingface/datasets
     os.environ["HF_DATASETS_CACHE"] = args.datasets_path + "/huggingface"
     os.environ["HF_DATASETS_FORCE_USE_LOCAL_FILES"] = str(args.force_local_datasets)
-    os.environ["USING_API_SERVER"] = "False"
+    os.environ["USING_API_SERVER"] = "True"
 
     from lighteval.logging.evaluation_tracker import EvaluationTracker
     from lighteval.lighteval_model import ModelConfig
@@ -139,7 +134,6 @@ if __name__ == "__main__":
     evaluation_tracker = EvaluationTracker(
         output_dir=args.output_dir,
         save_details=args.save_details,
-        public=args.public_run,
     )
 
     pipeline_params = PipelineParameters(

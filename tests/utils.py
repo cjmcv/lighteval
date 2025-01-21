@@ -29,11 +29,7 @@ from transformers import AutoTokenizer
 
 from lighteval.logging.evaluation_tracker import EvaluationTracker
 from lighteval.lighteval_model import LightevalModel, ModelInfo, GenerativeResponse, LoglikelihoodResponse, LoglikelihoodSingleTokenResponse
-# from lighteval.models.model_output import (
-#     GenerativeResponse,
-#     LoglikelihoodResponse,
-#     LoglikelihoodSingleTokenResponse,
-# )
+
 from lighteval.pipeline import Pipeline, PipelineParameters
 from lighteval.tasks.lighteval_task import LightevalTask
 from lighteval.tasks.registry import Registry

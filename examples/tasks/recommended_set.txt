@@ -170,3 +170,4 @@ lighteval|math:precalculus|0|0
 helm|summarization:cnn-dm|0|0  # failed。摘要，采用 extractiveness
 
 # 
+helm|synthetic_reasoning:natural_hard|0|0  # fine，采用em和f1

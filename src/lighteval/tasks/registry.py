@@ -33,7 +33,7 @@ from typing import Callable, Dict, List, Optional, Union
 from datasets.load import dataset_module_factory
 
 import lighteval.tasks.default_tasks as default_tasks
-from lighteval.tasks.extended import AVAILABLE_EXTENDED_TASKS_MODULES
+# from lighteval.tasks.extended import AVAILABLE_EXTENDED_TASKS_MODULES
 from lighteval.tasks.lighteval_task import LightevalTask, LightevalTaskConfig
 from lighteval.utils.imports import CANNOT_USE_EXTENDED_TASKS_MSG, can_load_extended_tasks
 
@@ -125,23 +125,23 @@ class Registry:
 
         # Import custom tasks provided by the user
         custom_tasks_registry = {}
-        custom_tasks_module = []
-        TASKS_TABLE = []
-        if self._custom_tasks is not None:
-            custom_tasks_module.append(create_custom_tasks_module(custom_tasks=self._custom_tasks))
-        if can_load_extended_tasks():
-            for extended_task_module in AVAILABLE_EXTENDED_TASKS_MODULES:
-                custom_tasks_module.append(extended_task_module)
-        else:
-            logger.warning(CANNOT_USE_EXTENDED_TASKS_MSG)
+        # custom_tasks_module = []
+        # TASKS_TABLE = []
+        # if self._custom_tasks is not None:
+        #     custom_tasks_module.append(create_custom_tasks_module(custom_tasks=self._custom_tasks))
+        # if can_load_extended_tasks():
+        #     for extended_task_module in AVAILABLE_EXTENDED_TASKS_MODULES:
+        #         custom_tasks_module.append(extended_task_module)
+        # else:
+        #     logger.warning(CANNOT_USE_EXTENDED_TASKS_MSG)
 
-        for module in custom_tasks_module:
-            TASKS_TABLE.extend(module.TASKS_TABLE)
-            # We don't log the tasks themselves as it makes the logs unreadable
-            logger.info(f"Found {len(module.TASKS_TABLE)} custom tasks in {module.__file__}")
+        # for module in custom_tasks_module:
+        #     TASKS_TABLE.extend(module.TASKS_TABLE)
+        #     # We don't log the tasks themselves as it makes the logs unreadable
+        #     logger.info(f"Found {len(module.TASKS_TABLE)} custom tasks in {module.__file__}")
 
-        if len(TASKS_TABLE) > 0:
-            custom_tasks_registry = create_lazy_tasks(meta_table=TASKS_TABLE, cache_dir=self._cache_dir)
+        # if len(TASKS_TABLE) > 0:
+        #     custom_tasks_registry = create_lazy_tasks(meta_table=TASKS_TABLE, cache_dir=self._cache_dir)
 
         default_tasks_registry = create_lazy_tasks(cache_dir=self._cache_dir)
         # Check the overlap between default_tasks_registry and custom_tasks_registry
