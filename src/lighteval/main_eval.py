@@ -31,11 +31,81 @@ HELP_PANEL_NAME_2 = "Logging Parameters"
 HELP_PANEL_NAME_3 = "Debug Parameters"
 HELP_PANEL_NAME_4 = "Modeling Parameters"
 
+def inspect(
+    tasks: str,
+    num_samples: int = 10, #Number of samples to display
+    show_config: bool = False, # Will display the full task config
+    cache_dir: str = CACHE_DIR, # Cache directory used to store datasets and models
+):
+    """
+    Inspect a tasks
+    """
+    from dataclasses import asdict
+    from pprint import pformat
+    from rich import print
+    from lighteval.tasks.registry import Registry, taskinfo_selector
+
+    registry = Registry(cache_dir=cache_dir)
+
+    # Loading task
+    task_names_list, _ = taskinfo_selector(tasks, task_registry=registry)
+    task_dict = registry.get_task_dict(task_names_list)
+    for name, task in task_dict.items():
+        print("-" * 10, name, "-" * 10)
+        if show_config:
+            print("-" * 10, "CONFIG")
+            task.cfg.print()
+        for ix, sample in enumerate(task.eval_docs()[: int(num_samples)]):
+            if ix == 0:
+                print("-" * 10, "SAMPLES")
+            print(f"-- sample {ix} --")
+            print(pformat(asdict(sample), indent=2))
+
+def eval(args):
+    from lighteval.logging.evaluation_tracker import EvaluationTracker
+    from lighteval.lighteval_model import ModelConfig
+    from lighteval.pipeline import EnvConfig, Pipeline, PipelineParameters
+
+    TOKEN = os.getenv("HF_TOKEN")
+
+    env_config = EnvConfig(token=TOKEN, cache_dir=args.cache_dir)
+
+    evaluation_tracker = EvaluationTracker(
+        output_dir=args.output_dir,
+        save_details=args.save_details,
+    )
+
+    pipeline_params = PipelineParameters(
+        env_config=env_config,
+        job_id=args.job_id,
+        dataset_loading_processes=args.dataset_loading_processes,
+        custom_tasks_directory=args.custom_tasks,
+        override_batch_size=-1,  # Cannot override batch size when using VLLM
+        num_fewshot_seeds=args.num_fewshot_seeds,
+        max_samples=args.max_samples,
+        use_chat_template=args.use_chat_template,
+        system_prompt=args.system_prompt,
+    )
+
+    model_args_dict: dict = {k.split("=")[0]: k.split("=")[1] if "=" in k else True for k in args.model_args.split(",")}
+    model_config = ModelConfig(**model_args_dict)
+
+    pipeline = Pipeline(
+        tasks=args.tasks,
+        pipeline_parameters=pipeline_params,
+        evaluation_tracker=evaluation_tracker,
+        model_config=model_config,
+    )
+
+    pipeline.evaluate()
+    pipeline.show_results()
+    results = pipeline.get_results()
+    pipeline.save_and_push_results()
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Benchmark the online serving throughput.")
     parser.add_argument(
-        "--model_args",
+        "--model-args",
         type=str,
         help="Model arguments in the form key1=value1,key2=value2,...",
     )
@@ -47,12 +117,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--datasets-path",
         type=str,
+        default="/",
         help="The path of datasets.",
-    )
-    parser.add_argument(
-        "--force-local-datasets",
-        action="store_true",
-        help="Use local datasets without downing.",
     )
     # === Common parameters ===
     parser.add_argument(
@@ -101,7 +167,7 @@ if __name__ == "__main__":
     )
     # === debug ===
     parser.add_argument(
-        "--max_samples",
+        "--max-samples",
         type=int,
         default=None,
         help="Maximum number of samples to evaluate on.",
@@ -112,56 +178,30 @@ if __name__ == "__main__":
         default=0,
         help="Optional job id for future reference.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--tasks-list",
+        action="store_true",
+        help="List all tasks.",
+    )
+    parser.add_argument(
+        "--tasks-inspect",
+        action="store_true",
+        help="Inspect a tasks.",
+    )
 
-    """
-    Evaluate models using vllm as backend.
-    """
+    args = parser.parse_args()
 
     # Default path: ~/.cache/huggingface/datasets
     os.environ["HF_DATASETS_CACHE"] = args.datasets_path + "/huggingface"
-    os.environ["HF_DATASETS_FORCE_USE_LOCAL_FILES"] = str(args.force_local_datasets)
     os.environ["USING_API_SERVER"] = "True"
 
-    from lighteval.logging.evaluation_tracker import EvaluationTracker
-    from lighteval.lighteval_model import ModelConfig
-    from lighteval.pipeline import EnvConfig, Pipeline, PipelineParameters
-
-    TOKEN = os.getenv("HF_TOKEN")
-
-    env_config = EnvConfig(token=TOKEN, cache_dir=args.cache_dir)
-
-    evaluation_tracker = EvaluationTracker(
-        output_dir=args.output_dir,
-        save_details=args.save_details,
-    )
-
-    pipeline_params = PipelineParameters(
-        env_config=env_config,
-        job_id=args.job_id,
-        dataset_loading_processes=args.dataset_loading_processes,
-        custom_tasks_directory=args.custom_tasks,
-        override_batch_size=-1,  # Cannot override batch size when using VLLM
-        num_fewshot_seeds=args.num_fewshot_seeds,
-        max_samples=args.max_samples,
-        use_chat_template=args.use_chat_template,
-        system_prompt=args.system_prompt,
-    )
-
-    model_args_dict: dict = {k.split("=")[0]: k.split("=")[1] if "=" in k else True for k in args.model_args.split(",")}
-    model_config = ModelConfig(**model_args_dict)
-
-    pipeline = Pipeline(
-        tasks=args.tasks,
-        pipeline_parameters=pipeline_params,
-        evaluation_tracker=evaluation_tracker,
-        model_config=model_config,
-    )
-
-    pipeline.evaluate()
-
-    pipeline.show_results()
-
-    results = pipeline.get_results()
-
-    pipeline.save_and_push_results()
+    if args.tasks_list:
+        from lighteval.tasks.registry import Registry
+        registry = Registry(cache_dir=CACHE_DIR)
+        registry.print_all_tasks()
+        print("tasks_list done.")
+    elif args.tasks_inspect:
+        inspect(args.tasks)
+        print("tasks_inspect done.")
+    else:
+        eval(args)

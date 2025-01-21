@@ -13,7 +13,7 @@
 # limitations under the License.
 import os
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import Callable, TypeVar, Union
+from typing import Callable, TypeVar, Tuple
 
 import numpy as np
 from datasets import DatasetDict, load_dataset, DownloadConfig, load_from_disk, get_dataset_config_info
@@ -164,35 +164,44 @@ def download_dataset_worker(
     dataset_filter: Callable[[dict], bool] | None = None,
     revision: str | None = None,
     splits: list[str] = [],
-) -> DatasetDict:
+) -> Tuple[DatasetDict, bool]:
     """
     Worker function to download a dataset from the HuggingFace Hub.
     Used for parallel dataset loading.
     """
-    use_local_files = eval(os.environ.get('HF_DATASETS_FORCE_USE_LOCAL_FILES'))
-    if use_local_files:
+    # 先尝试读取本地数据
+    is_local_dataset = True
+    if is_local_dataset:
         dataset_cache_dir = os.environ.get('HF_DATASETS_CACHE')+'/'+ dataset_path.replace("/", "___") + "/" + dataset_config_name
-        if not os.path.exists(dataset_cache_dir):
-            raise ValueError(f"dataset_cache_dir {dataset_cache_dir} is not exist.")
-        # Skip the next level of the path
-        contents = os.listdir(dataset_cache_dir)
-        sub_folder = contents[0]
-        dataset_cache_dir = os.path.join(dataset_cache_dir, sub_folder, "")
-        # Get the lastest version
-        versions = [os.path.join(dataset_cache_dir, d) for d in os.listdir(dataset_cache_dir) if os.path.isdir(os.path.join(dataset_cache_dir, d))]
-        latest_version_data_set = max(versions, key=os.path.getmtime) if versions else None
-        # Get all target arrows with splits.
-        arrow_list = os.listdir(latest_version_data_set)
-        # datasets = DatasetDict
-        dataset = []
-        for s in splits:
-            for item in arrow_list:
-                if s in item:
-                    latest_version_test_dataset = os.path.join(latest_version_data_set, item, "")
-                    # 单独加载arrow都只有一个'train', 无论其本身是test/validation/train。而从网上加载，则会用字段区分。
-                    # 所以从本地单独加载，需在这里先过滤split(即train/test/validation字段)选择对应arrow文件后加载，从网上加载则先加载整体到dataset后，再过滤split。
-                    dataset.append(load_dataset('arrow', data_files=latest_version_test_dataset)['train']) 
-    else:
+        if os.path.exists(dataset_cache_dir):
+            # Skip the next level of the path
+            contents = os.listdir(dataset_cache_dir)
+            sub_folder = contents[0]
+            dataset_cache_dir = os.path.join(dataset_cache_dir, sub_folder, "")
+            # Get the lastest version 
+            versions = [os.path.join(dataset_cache_dir, d) for d in os.listdir(dataset_cache_dir) if os.path.isdir(os.path.join(dataset_cache_dir, d))]
+            latest_version_data_set = max(versions, key=os.path.getmtime) if versions else None
+            # Get all target arrows with splits.
+            arrow_list = os.listdir(latest_version_data_set)
+            # datasets = DatasetDict
+            dataset = []
+            for s in splits:
+                for item in arrow_list:
+                    if s in item:
+                        latest_version_test_dataset = os.path.join(latest_version_data_set, item, "")
+                        # 单独加载arrow都只有一个'train', 无论其本身是test/validation/train。而从网上加载，则会用字段区分。
+                        # 所以从本地单独加载，需在这里先过滤split(即train/test/validation字段)选择对应arrow文件后加载，从网上加载则先加载整体到dataset后，再过滤split。
+                        dataset.append(load_dataset('arrow', data_files=latest_version_test_dataset)['train'])
+
+            print("len(dataset)", len(dataset))
+            if len(dataset) == 0:
+                is_local_dataset = False
+                raise Warning(f" Unable to load data from the local location. Try to obtain it from the network..")
+        else:
+            is_local_dataset = False
+            print(f"dataset_cache_dir {dataset_cache_dir} is not exist. Try to obtain it from the network..")
+
+    if not is_local_dataset:
         dataset = load_dataset(
             path=dataset_path, # "/home/cjmcv/project/llm_datasets/huggingface/lighteval___mmlu/abstract_algebra/1.0.0/e24764f1fb58c26b5f622157644f2e5fe77e5b01", # dataset_path, # 'lighteval/mmlu' # https://huggingface.co/datasets/lighteval/mmlu
             name=dataset_config_name, #dataset_config_name, # 'abstract_algebra'
@@ -207,7 +216,7 @@ def download_dataset_worker(
         dataset = dataset.filter(dataset_filter)  # 如果是加载离线数据，则这里不能调用
 
     # It returns DatasetDict because we don't specify a split
-    return dataset  # type: ignore
+    return dataset, is_local_dataset  # type: ignore
 
 
 def safe_divide(numerator: np.ndarray, denominator: float, default_value: float = 0.0) -> np.ndarray:

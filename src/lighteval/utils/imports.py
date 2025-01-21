@@ -18,20 +18,7 @@ import importlib
 def is_vllm_available() -> bool:
     return importlib.util.find_spec("vllm") is not None
 
-
 NO_VLLM_ERROR_MSG = "You are trying to use an VLLM model, for which you need `vllm`, which is not available in your environment. Please install it using pip, `pip install vllm`."
-
-
-def can_load_extended_tasks() -> bool:
-    imports = []
-    for package in ["langdetect", "openai"]:
-        imports.append(importlib.util.find_spec(package))
-
-    return all(cur_import is not None for cur_import in imports)
-
-
-CANNOT_USE_EXTENDED_TASKS_MSG = "If you want to use extended_tasks, make sure you installed their dependencies using `pip install -e .[extended_tasks]`."
-
 
 def can_load_spacy_tokenizer(language: str) -> bool:
     imports = []

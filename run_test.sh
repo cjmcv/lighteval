@@ -8,7 +8,7 @@
 
 MODEL_PATH="/home/cjmcv/project/llm_models/Qwen/Qwen2___5-1___5B-Instruct-AWQ"
 DATASETS_PATH="/home/cjmcv/project/llm_datasets/"
-EVAL_TASK="helm|synthetic_reasoning:natural_hard|0|0" # "helm|quac|0|0"
+EVAL_TASK="helm|bbq:Age|0|0" # "helm|synthetic_reasoning:natural_hard|0|0" # "helm|quac|0|0"
 EVAL_MAX_SAMPLES="120"
 NSYS_PROFILER=
 # NSYS_PROFILER="nsys profile --trace-fork-before-exec=true --cuda-graph-trace=node -o sglang.out --delay 60 --duration 70"
@@ -35,12 +35,14 @@ elif [ "$1" = "bm" ]; then
 elif [ "$1" = "eval" ]; then
     # python3 src/lighteval/__main__.py vllm "pretrained=$MODEL_PATH,dtype=float16" "helm|quac|0|0"
     # model_args: ModelConfig
-    python3 -m lighteval.main_eval --model_args "backend=$2,pretrained=$MODEL_PATH,dtype=float16" --tasks $EVAL_TASK --max_samples $EVAL_MAX_SAMPLES \
-                                   --datasets-path $DATASETS_PATH # --force-local-datasets
+    python3 -m lighteval.main_eval --model-args "backend=$2,pretrained=$MODEL_PATH,dtype=float16" --tasks $EVAL_TASK --max-samples $EVAL_MAX_SAMPLES \
+                                   --datasets-path $DATASETS_PATH
 elif [ "$1" = "list" ]; then
-    python3 src/lighteval/__main__.py tasks list
-elif [ "$1" = "task" ]; then
-    python3 src/lighteval/__main__.py tasks inspect $EVAL_TASK
+    # python3 src/lighteval/__main__.py tasks list
+    python3 -m lighteval.main_eval --tasks-list
+elif [ "$1" = "inspect" ]; then
+    # python3 src/lighteval/__main__.py tasks inspect $EVAL_TASK
+    python3 -m lighteval.main_eval --tasks-inspect --tasks $EVAL_TASK --datasets-path $DATASETS_PATH
 elif [ "$1" = "nsys" ]; then
     nsys-ui profile sglang.out.nsys-rep
 fi

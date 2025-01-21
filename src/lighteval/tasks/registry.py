@@ -35,7 +35,7 @@ from datasets.load import dataset_module_factory
 import lighteval.tasks.default_tasks as default_tasks
 # from lighteval.tasks.extended import AVAILABLE_EXTENDED_TASKS_MODULES
 from lighteval.tasks.lighteval_task import LightevalTask, LightevalTaskConfig
-from lighteval.utils.imports import CANNOT_USE_EXTENDED_TASKS_MSG, can_load_extended_tasks
+# from lighteval.utils.imports import CANNOT_USE_EXTENDED_TASKS_MSG, can_load_extended_tasks
 
 
 logger = logging.getLogger(__name__)

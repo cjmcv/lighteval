@@ -185,6 +185,7 @@ class LightevalTask:
         self.dataset_revision = cfg.hf_revision
         self.dataset_filter = cfg.hf_filter
         self.trust_dataset = cfg.trust_dataset
+        self.is_local_dataset = True
         self.dataset: Optional[DatasetDict] = None  # Delayed download
         logger.info(f"{self.dataset_path} {self.dataset_config_name}")
         self._fewshot_docs = None
@@ -277,7 +278,7 @@ class LightevalTask:
         """
         splits = as_list(splits)
         if self.dataset is None:
-            self.dataset = download_dataset_worker(
+            self.dataset, self.is_local_dataset = download_dataset_worker(
                 self.dataset_path,
                 self.dataset_config_name,
                 self.trust_dataset,
@@ -287,8 +288,7 @@ class LightevalTask:
             )
         
         docs = []
-        use_local_files = eval(os.environ.get('HF_DATASETS_FORCE_USE_LOCAL_FILES'))
-        if use_local_files:
+        if self.is_local_dataset:
             for ds in self.dataset:
                 for ix, item in enumerate(ds):
                     # Some tasks formatting is applied differently when the document is used for fewshot examples
