@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import sys
 import gc
 import logging
 import os
@@ -28,6 +29,7 @@ from typing import Optional, Union
 from transformers import AutoConfig
 import torch
 from tqdm import tqdm
+import requests
 
 from lighteval.data import GenerativeTaskDataset, LoglikelihoodDataset
 
@@ -261,9 +263,24 @@ class LightevalModel():
             self.API_RETRY_MULTIPLIER = 2
             self.CONCURENT_CALLS = 4
 
-            base_url=f"http://127.0.0.1:{port}/v1"
+            base_url=f"http://127.0.0.1:{port}"
+            model_url = f"{base_url}/v1/models"
+            
+            # Get model name
+            try:
+                response = requests.get(model_url)
+                model_list = response.json().get("data", [])
+                self.model_api_id = model_list[0]["id"] if model_list else None
+            except Exception as e:
+                print(f"Failed to fetch model from {model_url}. Error: {e}")
+                print(
+                    "Please specify the correct host and port using `--host` and `--port`."
+                )
+                sys.exit(1)
+        
             print("Connect to ", base_url)
-            self.client = openai.Client(base_url=base_url, api_key="EMPTY")
+            print("Model ", self.model_api_id)
+            self.client = openai.Client(base_url=base_url+"/v1", api_key="EMPTY")
             self.sampling_params = self.generation_parameters.to_vllm_openai_dict()
             self.model = None
         else:
@@ -638,7 +655,7 @@ class LightevalModel():
         for _ in range(self.API_MAX_RETRY):
             try:
                 response = self.client.chat.completions.create(
-                    model="default",
+                    model=self.model_api_id,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "text"},
                     max_tokens=max_new_tokens if max_new_tokens > 0 else None,

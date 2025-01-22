@@ -20,18 +20,20 @@ if [ "$1" = "launch" ]; then
         # --grammar-backend xgrammar --disable-overlap-schedule --disable-radix-cache
         $NSYS_PROFILER python3 -m sglang.launch_server --model-path $MODEL_PATH --enable-torch-compile --enable-mixed-chunk 
     elif [ "$2" = "vllm" ]; then
-        $NSYS_PROFILER python3 -m vllm.entrypoints.openai.api_server --model $MODEL_PATH --disable-log-requests --num-scheduler-steps 10 --max_model_len 4096
+        # vllm=0.6.6, AssertionError: Logits Processors are not supported in multi-step decoding, 需要去掉 --num-scheduler-steps
+        $NSYS_PROFILER python3 -m vllm.entrypoints.openai.api_server --model $MODEL_PATH --disable-log-requests --max_model_len 4096 # --num-scheduler-steps 10 
     elif [ "$2" = "lmdeploy" ]; then
-        $NSYS_PROFILER lmdeploy serve api_server $MODEL_PATH  --server-port 23333 --model-name test_model
+        # lmdeploy=0.7.0, 不支持输出logprobs（输出token的概率值），导致LoglikelihoodResponse无法计算。
+        $NSYS_PROFILER lmdeploy serve api_server $MODEL_PATH --model-name $MODEL_PATH
     else
-        echo "abc"
+        echo "The input parameters are incorrect."
     fi
 elif [ "$1" = "bm" ]; then
     DATASETS_PATH="$DATASETS_PATH/ShareGPT_V3_unfiltered_cleaned_split.json"
     DATASET="sharegpt"
     NUM_PROMPTS=10
     REQUEST_RATE=4
-    python3 -m lighteval.main_benchmark --backend $2 --dataset-name $DATASET --dataset-path $DATASETS_PATH --num-prompts $NUM_PROMPTS --request-rate $REQUEST_RATE
+    python3 -m lighteval.main_benchmark --backend $2 --dataset-name $DATASET --dataset-path $DATASETS_PATH --num-prompts $NUM_PROMPTS --request-rate $REQUEST_RATE 
 elif [ "$1" = "eval" ]; then
     # python3 src/lighteval/__main__.py vllm "pretrained=$MODEL_PATH,dtype=float16" "helm|quac|0|0"
     # model_args: ModelConfig
@@ -56,15 +58,36 @@ fi
 # pip install --upgrade pip
 # pip install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.4/flashinfer/
 
-curl http://localhost:30000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Once upon a time,",
-    "sampling_params": {
-      "max_new_tokens": 16,
-      "temperature": 0
-    }
-  }'
+## sglang
+# curl http://localhost:30000/generate \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "text": "Once upon a time,",
+#     "sampling_params": {
+#       "max_new_tokens": 16,
+#       "temperature": 0
+#     }
+#   }'
+
+## vllm
+# http://localhost:8000/docs
+# curl http://localhost:8000/v1/completions \
+# -H "Content-Type: application/json" \
+# -d '{
+#     "model":"/home/cjmcv/project/llm_models/Qwen/Qwen2___5-1___5B-Instruct-AWQ",
+#     "prompt":"请为我生成一篇关于人工智能的短文",
+#     "max_tokens":100
+# }'
+
+## lmdeploy
+# # test_model与launch时的--model-name对应
+# curl http://localhost:23333/v1/completions \
+# -H "Content-Type: application/json" \
+# -d '{
+#     "model":"test_model",
+#     "prompt":"请为我生成一篇关于人工智能的短文",
+#     "max_tokens":100
+# }'
 
 # curl http://localhost:30000/start_profile
 
