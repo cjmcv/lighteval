@@ -1,6 +1,0 @@
-
-leaderboard|mmlu:abstract_algebra|0|0         
-#leaderboard|mmlu:anatomy|0|0 
-#leaderboard|mmlu:astronomy|0|0
-#leaderboard|mmlu:business_ethics|0|0
-helm|quac|0|0

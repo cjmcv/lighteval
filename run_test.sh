@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 
-# sh run_test.sh launch sglang   启动服务
-# sh run_test.sh eval sglang     评估在特定数据集上的模型指标
-# sh run_test.sh bm sglang       评估在sharedgpt数据集上的耗时情况
+# sh run_test.sh launch sglang/vllm/lmdeploy         启动服务
+# sh run_test.sh eval sglang/vllm/lmdeploy/local     评估在特定数据集上的模型指标
+# sh run_test.sh bm sglang/vllm/lmdeploy             评估在sharedgpt数据集上的耗时情况
 # sh run_test.sh task|list|nsys  task(特定数据集的具体情况) / list(列出所支持的所有数据集) / nsys(GPU运行情况分析)
 
 
 MODEL_PATH="/home/cjmcv/project/llm_models/Qwen/Qwen2___5-1___5B-Instruct-AWQ"
 DATASETS_PATH="/home/cjmcv/project/llm_datasets/"
-EVAL_TASK="examples/tasks/my_set.txt" # "helm|bbq:Age|0|0" # "helm|synthetic_reasoning:natural_hard|0|0" # "helm|quac|0|0"
-EVAL_MAX_SAMPLES="120"
+EVAL_TASK="examples/tasks/my_set_others.txt" # my_set_mmlu / my_set_zh / my_set_others / my_set_test
+# EVAL_TASK="lighteval|xwinograd:zh|0|0"
+EVAL_MAX_SAMPLES="100"
 NSYS_PROFILER=
 # NSYS_PROFILER="nsys profile --trace-fork-before-exec=true --cuda-graph-trace=node -o sglang.out --delay 60 --duration 70"
+# ncu
 
-echo "run example: sh run_test.sh {launch/bm/eval/list/task} {sglang/lmdeploy/vllm} "
+echo "run example: sh run_test.sh {launch/bm/eval/list/task} {sglang/lmdeploy/vllm/local}"
 
 if [ "$1" = "launch" ]; then
     if [ "$2" = "sglang" ]; then
@@ -37,8 +39,13 @@ elif [ "$1" = "bm" ]; then
 elif [ "$1" = "eval" ]; then
     # python3 src/lighteval/__main__.py vllm "pretrained=$MODEL_PATH,dtype=float16" "helm|quac|0|0"
     # model_args: ModelConfig
-    python3 -m lighteval.main_eval --model-args "backend=$2,pretrained=$MODEL_PATH,dtype=float16" --tasks $EVAL_TASK --max-samples $EVAL_MAX_SAMPLES \
-                                   --datasets-path $DATASETS_PATH
+    if [ "$2" = "local" ]; then
+        python3 -m lighteval.main_eval --model-args "backend=$2,pretrained=$MODEL_PATH,dtype=float16" --tasks $EVAL_TASK --max-samples $EVAL_MAX_SAMPLES \
+                                       --datasets-path $DATASETS_PATH # --is-eval-api-server
+    else
+        python3 -m lighteval.main_eval --model-args "backend=$2,pretrained=$MODEL_PATH,dtype=float16" --tasks $EVAL_TASK --max-samples $EVAL_MAX_SAMPLES \
+                                       --datasets-path $DATASETS_PATH --is-eval-api-server
+    fi
 elif [ "$1" = "list" ]; then
     # python3 src/lighteval/__main__.py tasks list
     python3 -m lighteval.main_eval --tasks-list

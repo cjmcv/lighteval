@@ -48,7 +48,6 @@ logger = logging.getLogger(__name__)
 class PipelineParameters:
     # Env parameters
     env_config: EnvConfig = field(default_factory=EnvConfig)
-    job_id: int = 0
     dataset_loading_processes: int = 1
     # Generation parameters
     override_batch_size: int | None = None
@@ -120,7 +119,6 @@ class Pipeline:
             num_fewshot_seeds=self.pipeline_parameters.num_fewshot_seeds,
             override_batch_size=self.pipeline_parameters.override_batch_size,
             max_samples=self.pipeline_parameters.max_samples,
-            job_id=self.pipeline_parameters.job_id,
             config=self.model_config,
         )
 

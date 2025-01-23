@@ -608,7 +608,7 @@ class LightevalModel():
             sampling_params.max_tokens = 1
             sampling_params.detokenize = False
 
-        print("total len: ", len(inputs))
+        print("\n\ninputs total len: ", len(inputs))
         chunks = [inputs[i:i + self.generate_step] for i in range(0, len(inputs), self.generate_step)]
 
         outputs = []
@@ -657,6 +657,7 @@ class LightevalModel():
                 response = self.client.chat.completions.create(
                     model=self.model_api_id,
                     messages=[{"role": "user", "content": prompt}],
+                    stream=False,
                     response_format={"type": "text"},
                     max_tokens=max_new_tokens if max_new_tokens > 0 else None,
                     logprobs=return_logits,

@@ -76,7 +76,6 @@ def eval(args):
 
     pipeline_params = PipelineParameters(
         env_config=env_config,
-        job_id=args.job_id,
         dataset_loading_processes=args.dataset_loading_processes,
         override_batch_size=-1,  # Cannot override batch size when using VLLM
         num_fewshot_seeds=args.num_fewshot_seeds,
@@ -102,6 +101,11 @@ def eval(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="Benchmark the online serving throughput.")
+    parser.add_argument(
+        "--is-eval-api-server",
+        action="store_true",
+        help="Whether to use the API server as the evaluation backend or use the locally executed vLLM as the backend.",
+    )
     parser.add_argument(
         "--model-args",
         type=str,
@@ -168,12 +172,6 @@ if __name__ == "__main__":
         help="Maximum number of samples to evaluate on.",
     )
     parser.add_argument(
-        "--job_id",
-        type=int,
-        default=0,
-        help="Optional job id for future reference.",
-    )
-    parser.add_argument(
         "--tasks-list",
         action="store_true",
         help="List all tasks.",
@@ -188,7 +186,7 @@ if __name__ == "__main__":
 
     # Default path: ~/.cache/huggingface/datasets
     os.environ["HF_DATASETS_CACHE"] = args.datasets_path + "/huggingface"
-    os.environ["USING_API_SERVER"] = "True"
+    os.environ["USING_API_SERVER"] = str(args.is_eval_api_server)
 
     if args.tasks_list:
         from lighteval.tasks.registry import Registry

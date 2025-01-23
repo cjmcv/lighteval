@@ -74,8 +74,6 @@ class GeneralConfigLogger:
             Else, the batch size is automatically inferred depending on what fits in memory.
         max_samples (int): If set, cuts the number of samples per task to `max_samples`.
             Note: This should only be used for debugging purposes!
-        job_id (int): If the evaluation suite is launched as a slurm job, stores the current job id.
-            Purely informative parameter used to retrieve scheduler logs.
         start_time (float): Start time of the experiment. Logged at class init.
         end_time (float): End time of the experiment. Logged when calling [`GeneralConfigLogger.log_end_time`]
         total_evaluation_time_secondes (str): Inferred total evaluation time in seconds (from the start and end times).
@@ -91,7 +89,6 @@ class GeneralConfigLogger:
     num_fewshot_seeds: int = None
     override_batch_size: int = None
     max_samples: int = None
-    job_id: int = None
     start_time: float = None
     end_time: float = None
     total_evaluation_time_secondes: str = None
@@ -120,7 +117,6 @@ class GeneralConfigLogger:
         num_fewshot_seeds: int,
         override_batch_size: Union[None, int],
         max_samples: Union[None, int],
-        job_id: str,
         config: "Config" = None,
     ) -> None:
         """
@@ -132,7 +128,6 @@ class GeneralConfigLogger:
                 If strictly positive, its value is used as the batch size for all experiments.
                 Else, the batch size is automatically inferred depending on what fits in memory.
             max_samples (Union[None, int]): maximum number of samples, if None, use all the samples available.
-            job_id (str): job ID, used to retrieve logs.
             config (optional): Nanotron Config
 
         Returns:
@@ -142,7 +137,6 @@ class GeneralConfigLogger:
         self.num_fewshot_seeds = num_fewshot_seeds
         self.override_batch_size = override_batch_size
         self.max_samples = max_samples
-        self.job_id = job_id
         self.config = config
 
     def log_model_info(self, model_info: ModelInfo) -> None:
