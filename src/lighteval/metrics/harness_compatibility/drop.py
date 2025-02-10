@@ -27,7 +27,13 @@ from typing import List, Set, Tuple
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-
+# <NT> 基于词袋（Bag of Words）的 F1 分数：源自 Harness Drop。
+# DROP 提供了两种指标，一种是准精确匹配指标，另一种是以数字运算为重点的 F1 分数。
+# 说它是 “准” 精确匹配，是因为在进行匹配前会做一些归一化处理；
+# 说是以数字运算为重点，是因为如果目标与预测结果之间存在数字不匹配的情况，F1 分数就会被设为 0。
+# F1 分数是通过计算目标和预测的词袋表示形式的交集来得出的，而且还有个额外的特点：如果答案和 / 或预测是由多个片段组成的，
+# 那么会在这两组片段之间基于词袋重叠情况进行贪心匹配（即基于词袋重叠情况尽量多地去匹配），并返回各对匹配结果的 F1 分数平均值。
+# DROP 还接受多个答案，在这种情况下，会取预测结果与不同答案之间 F1 分数 / 精确匹配度的最大值。
 def drop_metrics(predictions: list[str], formatted_doc, **kwargs):  # noqa: C901
     """F1 score from bag of words: comes from Harness Drop. DROP offers two metrics,
     a quasi exact match and a numeracy-focused F1 score. Quasi in the sense that it

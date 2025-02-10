@@ -20,6 +20,40 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# <NT> 该模块负责管理在 样本层面(sample level) 出现的所有指标。然后，会使用简单的函数（最小值、平均值、最大值等）在 语料库层面(corpus level) 汇总上述指标的结果。大多数指标都属于这一类别。
+# 1) ExactMatches: 精准匹配, 需要完全一致, 内部划分成前缀(目标gold是否为预测结果pred的前缀)/后缀/全匹配, 共三种.
+# 2) F1_score: 是精确率（Precision）和召回率（Recall）的调和平均数. 将gold和pred字符串分别切分成单词, 构建词袋(bow: Bag of Words), 然后将两个词袋放入到nltk.scores.f_measure进行计算.
+#              两个词袋的词个数可以不一致: TP) gold有pred也有; FP) gold无pred有; FN) gold有pred无. 精确率P: TP/(TP+FP); 召回率R: TP/(TP+FN); F1 = 2 x (PxR) / (P+R)
+# 3) LoglikelihoodAcc: 对数似然准确率, 最高对数概率值 choices_logprob 的下标是否就是 gold 的下标。
+# 4) NormalizedMultiChoiceProbability: 与LoglikelihoodAcc很相似, 区别在于LoglikelihoodAcc取argmax,即拿到下标; 
+#                                      而它是逐个先除以 np.sum(np.exp(normalized_log_probs)) 后, 再取最大值, 拿到的是最大的概率分数，而不是分数的下标。
+# 5) Probability: 返回gold choice的分数，如有多个，则返回最大值
+# 6) Recall: 判断多个最优的答案中是否包含gold choice。
+# 7) MRR (Mean Reciprocal Rank 平均倒数排名): 衡量模型将正确答案排在多高位置，如果正确答案排名越靠前，MRR 值越高，说明模型的排序效果越好。
+# 8) ROUGE (Recall-Oriented Understudy for Gisting Evaluation, 以召回率为导向的文本生成的质量评估指标)，直接使用python包rouge_score完成计算。
+#          这里选取的"rouge1", "rouge2", "rougeL", "rougeLsum"。
+#          ROUGE-N通过计算生成文本与参考文本中共同出现的N元语法（N-gram）的数量，来衡量二者的相似性，其中ROUGE-1考虑的是单个单词，ROUGE-2 则是两个连续单词.
+#          ROUGE-L通过计算生成文本与参考文本的最长公共子序列长度，来衡量二者的相似性.
+#          ROUGE-LSUM考虑了参考文本中可能存在多个句子或多个摘要作为参考的情况，计算生成文本与多个参考文本之间基于最长公共子序列的相似性，并将这些相似性进行汇总，以更全面地评估生成文本与多个参考文本的整体匹配程度。
+# 9) BertScore: 一种基于 BERT 的自动化评估方法，用于衡量生成文本与参考文本之间的语义相似度。BERT模型采用microsoft/deberta-large-mnli作为评分器，实现代码是从bert-score中提取出来的一部分内容。
+#               1，将原始文本和生成的文本分别通过BERT模型编码，得到向量表示； 2，每个生成词与所有参考词构建匹配对，形成一个大矩阵；
+#               3，计算每一对词之间的相关性得分,如采用余弦相似度；           4，通过 F1 分数的变体等方式来聚合所有匹配对的得分，得出整体的 BERT Score；
+#               输出BERTScore-P / R / F
+# 10) Extractiveness: 内容提取性 评价指标，包含覆盖率、密集度和压缩率指标。
+#                     覆盖率: 通常通过统计提取内容pred中与原始文本关键信息匹配的部分占原始文本关键信息的比例来计算，覆盖率越高，说明模型对原始文本关键信息的提取越全面。
+#                     密集度: 通过计算提取内容中关键信息的数量与提取内容总数量的比例来衡量，密集度越高,提取的信息越紧凑
+#                     压缩率: 原始文本的长度与提取内容长度的比值，压缩率越高, 内容越简洁.
+# 11) Faithfulness: 内容忠实度 评价指标，即考察预测所生成的内容pred与原始文本依据等参照内容在多大程度上保持一致，是否准确地反映了原始文本的关键信息、语义等。
+#                   使用SummaCZS (Summary Content Zero-Shot) 模型来进行此项计算（模型通过AllenNLP或transformer包 下载，pytorch推理），该模型具备可配置的粒度以及不同的模型变体。
+# 12) BLEURT: Bidirectional Language Representations from Transformers, 一种基于transformer模型的文本质量的指标，这里采用bleurt-tiny-512模型，直接将pred和gold输入到模型，得到模型输出即可。
+#             旨在克服传统文本评估指标（如 BLEU、ROUGE 等）的一些局限性，能够更好地衡量文本在语义层面的相似性以及文本生成质量等情况。
+#             与只基于词法、语法层面的 n-gram 匹配的传统指标不同，BLEURT 依靠预训练的 Transformer 模型来捕捉文本之间深层次的语义关联。
+# 13) BLEU: Bilingual Evaluation Understudy 双语评估替换词, 一种用于评估机器翻译质量的常用指标, 基本原理是n-gram 匹配，即计算pred与gold中 连续的 n 个词或字符 的匹配程度来评估翻译质量。这里调用nltk包里的函数进行计算。
+# 14) StringDistance: 字符串距离，包含以下三种：1.最长公共前缀的长度； 2. 编辑距离，直接调用nltk的方法； 3. 编辑相似度：在编辑距离的基础上套一个小公式换算得到。
+#                     编辑距离：指将一个字符串转换为另一个字符串所需要的最少编辑操作次数。编辑操作包括插入、删除和替换一个字符。
+# 15) JudgeLLM: 使用其他模型充当judge进行推理获取结果，然后拿judge模型的输出这个对目标模型的输出结果进行评估。具体评估方式由外部指定(process_judge_response), 内部调用这个函数得到评估分数。
+# 16) MajAtK: 精准匹配，也划分为前缀/后缀/全匹配三种。与ExactMatches不同的是，这个是针对单个样本的一个golds(注释说一组，但实现中只能是一个，取gold[0])和一组predictions来计算度量指标。
+#                      这里会从一组的predictions中找到出现最频繁的与gold[0]进行比较。
 """This module manages all the metrics occurring at the sample level. The results of said metrics are then aggregated
 using simple function (min, mean, max, ...) at the corpus level. Most metrics fall under this category.
 """
